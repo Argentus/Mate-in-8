@@ -115,6 +115,7 @@ function processMoveAnimationFinished()
                 for i=0,45 do
                     yield()
                 end
+                music(0)
                 gameState_currentScreen = "matchMenu"
                 gameState_menuControl_cursor = 1
             end))

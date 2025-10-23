@@ -41,6 +41,7 @@ function handleMainMenuControl()
             white = nil,
             black = nil
         }
+        gameState_matchOver = nil
         gameState_playingWhite = gameState_menuControl_menuState.Color == 1
         gameState_computerControlsBlack = gameState_menuControl_menuState.versus == 1 and gameState_playingWhite
         gameState_computerControlsWhite = gameState_menuControl_menuState.versus == 1 and not gameState_playingWhite
