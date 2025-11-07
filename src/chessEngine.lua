@@ -204,10 +204,10 @@ function lucania_evaluatePosition(position)
     local value = 0
     for x = 1, 8 do
         for y = 1, 8 do
-            local piece = position.board[boardIndex(vector(x, y))]
-            if piece ~= "." then
-                local pieceValue = lucania_sunfish_pst[piece][(y - 1) * 8 + x]
-                value = value + pieceValue * (isWhitePiece(piece) and 1 or -1)
+            local pc = position.board[boardIndex(vector(x, y))]
+            if pc ~= "." then
+                local pieceValue = lucania_sunfish_pst[pc][(y - 1) * 8 + x]
+                value = value + pieceValue * (isWhitePiece(pc) and 1 or -1)
             end
         end
     end
@@ -220,7 +220,7 @@ function lucania_orderMoves(moves, killerMoves, depth)
 
         if move.takes then
             local victimVal = lucania_piece_value[to_upper(move.takes)] or 0
-            local attackerVal = lucania_piece_value[to_upper(move.piece)] or 1
+            local attackerVal = lucania_piece_value[to_upper(move.pc)] or 1
             score = 10000 + victimVal - attackerVal / 100
         end
 

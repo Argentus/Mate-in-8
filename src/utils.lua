@@ -39,10 +39,10 @@ function getPositionId(position)
     end
     s = s ..
         (position.whiteTurn and "w" or "b") ..
-        (position.whiteCastleKingside and "K" or "") ..
-        (position.whiteCastleQueenside and "Q" or "") ..
-        (position.blackCastleKingside and "k" or "") ..
-        (position.blackCastleQueenside and "q" or "")
+        (position.wtCslH and "K" or "") ..
+        (position.wtCslA and "Q" or "") ..
+        (position.bkCslH and "k" or "") ..
+        (position.bkCslA and "q" or "")
     return s
 end
 
@@ -81,10 +81,10 @@ function getPositionHash(position)
         hash = bxor(hash, zobrist["side"])
     end
 
-    if position.whiteCastleKingside   then hash = bxor(hash, zobrist["cK"]) end
-    if position.whiteCastleQueenside  then hash = bxor(hash, zobrist["cQ"]) end
-    if position.blackCastleKingside   then hash = bxor(hash, zobrist["ck"]) end
-    if position.blackCastleQueenside  then hash = bxor(hash, zobrist["cq"]) end
+    if position.wtCslH   then hash = bxor(hash, zobrist["cK"]) end
+    if position.wtCslA  then hash = bxor(hash, zobrist["cQ"]) end
+    if position.bkCslH   then hash = bxor(hash, zobrist["ck"]) end
+    if position.bkCslA  then hash = bxor(hash, zobrist["cq"]) end
 
     return hash
 end
@@ -134,6 +134,57 @@ function deep_copy(t)
     return copy
 end
 
+function getFen(position)
+    local fen = ""
+    for rank=8,1,-1 do
+        local emptyCount = 0
+        for file=1,8 do
+            local sqIdx = boardIndex(vector(file, rank))
+            local piece = position.board[sqIdx]
+            if piece == "." then
+                emptyCount += 1
+            else
+                if emptyCount > 0 then
+                    fen = fen .. emptyCount
+                    emptyCount = 0
+                end
+                fen = fen .. piece
+            end
+        end
+        if emptyCount > 0 then
+            fen = fen .. emptyCount
+        end
+        if rank > 1 then
+            fen = fen .. "/"
+        end
+    end
+
+    fen = fen .. " " .. (position.whiteTurn and "w" or "b") .. " "
+
+    local castling = ""
+    if position.wtCslH then castling ..= position.whiteOrigHRookPosition == 29 and "K" or to_upper(getFile(position.whiteOrigHRookPosition)) end
+    if position.wtCslA then castling ..= position.whiteOrigARookPosition == 22 and "Q" or to_upper(getFile(position.whiteOrigARookPosition))  end
+    if position.bkCslH then castling ..= position.blackOrigHRookPosition == 99 and "k" or getFile(position.blackOrigHRookPosition) end
+    if position.bkCslA then castling ..= position.blackOrigARookPosition == 92 and "q" or getFile(position.blackOrigARookPosition) end
+    if castling == "" then castling = "-" end
+    fen ..= castling .. " "
+
+    if position.enPassant then
+        local epSquare = boardIndexToSquare(position.enPassant)
+        fen ..= chr(96 + epSquare.x) .. tostring(epSquare.y)
+    else
+        fen ..= "-"
+    end
+
+    fen ..= " " .. position.movesSinceLastCapture .. " " .. flr(#position.visitedPositions / 2 + 1)
+
+    return fen
+end
+
+function getFile(idx)
+    return chr(95 + (idx % 10))
+end
+
 function getMoveNotation(position, from, to)
     local piece = position.board[boardIndex(from)]
     local targetPiece = position.board[boardIndex(to)]
@@ -164,7 +215,7 @@ function getMoveNotation(position, from, to)
         notation = notation .. " e.p."
     end
 
-    -- ambiguous?
+    -- ambig?
     local clarification = ""
     for i, p in pairs(position.board) do
         if p == piece and i ~= boardIndex(from) then
@@ -195,9 +246,9 @@ function getMoveNotation(position, from, to)
     end
 
     -- Check/Mate
-    if isMate(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn) then
+    if isMate(gs_curGmPos, gs_curGmPos.whiteTurn) then
         notation = notation .. "#"
-    elseif  isCheck(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn) then
+    elseif  isCheck(gs_curGmPos, gs_curGmPos.whiteTurn) then
         notation = notation .. "+"
     end
 

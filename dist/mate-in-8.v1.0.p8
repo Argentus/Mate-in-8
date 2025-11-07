@@ -1,15 +1,15 @@
 pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
+-- Mate in 8
+-- by Argentus
+
 -- src/chessControl.lua
 
 
 function handleChessControls()
-    if lucania_coroutine  then
-        coresume(lucania_coroutine)
-    end
 
-    if (gameState_boardControl_cursorActive) then
+    if (gs_csrActv) then
         local moveCursor
         if btnp(0) then
             moveCursor = gameState_playingWhite and vector(-2, -1) or vector(0, -1)
@@ -23,37 +23,37 @@ function handleChessControls()
 
         if moveCursor then
             sfx(2);
-            gameState_boardControl_cursor = vector((gameState_boardControl_cursor.x + moveCursor.x )% 8 + 1, (gameState_boardControl_cursor.y + moveCursor.y )% 8 + 1)
+            gs_csr = vector((gs_csr.x + moveCursor.x )% 8 + 1, (gs_csr.y + moveCursor.y )% 8 + 1)
         end
 
         if btnp(5) then
-            local board = gameState_currentGamePosition.board
-            local cursorIndex = boardIndex(gameState_boardControl_cursor)
-            local piece = board[cursorIndex]
+            local board = gs_curGmPos.board
+            local csrI = boardIndex(gs_csr)
+            local pc = board[csrI]
 
-            if not gameState_boardControl_pieceLifted then
-                if piece ~= "." and (isWhitePiece(piece) == gameState_currentGamePosition.whiteTurn) then
+            if not gs_pcLift then
+                if pc ~= "." and (isWhitePiece(pc) == gs_curGmPos.whiteTurn) then
                     sfx(3);
-                    gameState_boardControl_currentPieceLegalMoves = getPieceLegalMoves(gameState_currentGamePosition, gameState_boardControl_cursor)
-                    gameState_boardControl_pieceLifted = gameState_boardControl_cursor
+                    gs_curPcLegMvs = getPieceLegalMoves(gs_curGmPos, gs_csr)
+                    gs_pcLift = gs_csr
                 end
             else
-                if vectorcmp(gameState_boardControl_cursor, gameState_boardControl_pieceLifted) then
-                    gameState_boardControl_pieceLifted = nil
-                    gameState_boardControl_currentPieceLegalMoves = {}
-                elseif isSameColorPiece(board[cursorIndex], board[boardIndex(gameState_boardControl_pieceLifted)]) then
-                    sfx(3);
-                    gameState_boardControl_currentPieceLegalMoves = getPieceLegalMoves(gameState_currentGamePosition, gameState_boardControl_cursor)
-                    gameState_boardControl_pieceLifted = gameState_boardControl_cursor
-                elseif contains(gameState_boardControl_currentPieceLegalMoves, cursorIndex) then
-                    gameState_boardControl_cursorActive = false
-                    gameState_boardControl_lastCursorPos[gameState_currentGamePosition.whiteTurn and "white" or "black"] = gameState_boardControl_cursor;
-                    gameState_boardControl_pieceMoving = {from = gameState_boardControl_pieceLifted, to = gameState_boardControl_cursor}
-                    gameState_boardControl_currentPieceLegalMoves = {}
-                    if board[cursorIndex] ~= "." then
-                        gameState_boardControl_pieceCaptured = gameState_boardControl_cursor
+                if contains(gs_curPcLegMvs, csrI) then
+                    gs_csrActv = false
+                    gs_lstCsrPos[gs_curGmPos.whiteTurn and "white" or "black"] = gs_csr;
+                    gs_pcMvng = {from = gs_pcLift, to = gs_csr}
+                    gs_curPcLegMvs = {}
+                    if board[csrI] ~= "." and (isWhitePiece(board[csrI]) ~= gs_curGmPos.whiteTurn) then
+                        gs_pcCptd = gs_csr
                     end
-                    gameState_boardControl_pieceLifted = nil
+                    gs_pcLift = nil
+                elseif vectorcmp(gs_csr, gs_pcLift) then
+                    gs_pcLift = nil
+                    gs_curPcLegMvs = {}
+                elseif isSameColorPiece(board[csrI], board[boardIndex(gs_pcLift)]) then
+                    sfx(3);
+                    gs_curPcLegMvs = getPieceLegalMoves(gs_curGmPos, gs_csr)
+                    gs_pcLift = gs_csr
                 end
             end
         end
@@ -61,9 +61,9 @@ function handleChessControls()
 
     if (btnp(4)) then
         sfx(0)
-        gameState_currentScreen = "matchMenu"
-        gameState_menuControl_cursor = 1
-        gameState_menuControl_menuState = {}
+        gs_scrn = "matchMenu"
+        gs_mnCsr = 1
+        gs_mnSte = {}
     end
 
 
@@ -72,47 +72,47 @@ end
 function on_moveAnimationFinished()
     sfx(4);
 
-    gameState_moveAnimationFinished = true
-    makeMove(gameState_currentGamePosition, 
-        boardIndex(gameState_boardControl_pieceMoving.from), 
-        boardIndex(gameState_boardControl_pieceMoving.to))
+    gs_mvAnimFin = true
+    makeMove(gs_curGmPos, 
+        boardIndex(gs_pcMvng.from), 
+        boardIndex(gs_pcMvng.to))
 
-    if (isMate(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn)) then
-        gameState_matchOver = {
+    if (isMate(gs_curGmPos, gs_curGmPos.whiteTurn)) then
+        gs_matchOvr = {
             reason = "mate",
-            result = gameState_currentGamePosition.whiteTurn and "black" or "white"
+            result = gs_curGmPos.whiteTurn and "black" or "white"
         }
-    elseif (isStalemate(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn)) then
-        gameState_matchOver = {
+    elseif (isStalemate(gs_curGmPos, gs_curGmPos.whiteTurn)) then
+        gs_matchOvr = {
             reason = "stale",
             result = "draw"
         }
     end
 
-    gameState_boardControl_movesNotation[#gameState_boardControl_movesNotation + 1] = getMoveNotation(gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory] or gameState_startPosition, gameState_boardControl_pieceMoving.from, gameState_boardControl_pieceMoving.to)
-    if (isCheck(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn)) then
+    gs_mvsNtn[#gs_mvsNtn + 1] = getMoveNotation(gs_posHtr[#gs_posHtr] or gameState_startPosition, gs_pcMvng.from, gs_pcMvng.to)
+    if (isCheck(gs_curGmPos, gs_curGmPos.whiteTurn)) then
         sfx(5);
     end
-    gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory + 1] = deep_copy(gameState_currentGamePosition)
-    gameState_boardControl_pieceMoving = nil
-    gameState_boardControl_pieceCaptured = nil
+    gs_posHtr[#gs_posHtr + 1] = deep_copy(gs_curGmPos)
+    gs_pcMvng = nil
+    gs_pcCptd = nil
 end
 
 function processMoveAnimationFinished()
-    if gameState_moveAnimationFinished then
-        gameState_moveAnimationFinished = false
+    if gs_mvAnimFin then
+        gs_mvAnimFin = false
     
-        if gameState_matchOver == nil and (gameState_currentGamePosition.whiteTurn and gameState_computerControlsWhite) or (not gameState_currentGamePosition.whiteTurn and gameState_computerControlsBlack) then
+        if gs_matchOvr == nil and (gs_curGmPos.whiteTurn and gs_cpuWt) or (not gs_curGmPos.whiteTurn and gs_cpuBk) then
             lucania_startSecond = stat(85)
             lucania_coroutine = cocreate(function()
-                move, score = lucania_search(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn)
+                move, score = lucania_search(gs_curGmPos, gs_curGmPos.whiteTurn)
                 move_from = boardIndexToSquare(move.from)
                 move_to = boardIndexToSquare(move.to)
-                gameState_boardControl_pieceMoving = {from = move_from, to = move_to}
+                gs_pcMvng = {from = move_from, to = move_to}
             end)
 
-        elseif gameState_matchOver then
-            gameState_boardControl_cursorActive = false
+        elseif gs_matchOvr then
+            gs_csrActv = false
 
             -- Delay game over splash
             add(async_to_run, cocreate(function()
@@ -120,13 +120,13 @@ function processMoveAnimationFinished()
                     yield()
                 end
                 music(0)
-                gameState_currentScreen = "matchMenu"
-                gameState_menuControl_cursor = 1
+                gs_scrn = "matchMenu"
+                gs_mnCsr = 1
             end))
 
         else
-            gameState_boardControl_cursorActive = true
-            gameState_boardControl_cursor = gameState_boardControl_lastCursorPos[gameState_currentGamePosition.whiteTurn and "white" or "black"] or vector(4, 4);
+            gs_csrActv = true
+            gs_csr = gs_lstCsrPos[gs_curGmPos.whiteTurn and "white" or "black"] or vector(4, 4);
         end
     end
 
@@ -136,44 +136,44 @@ function handleViewNotationControl()
 
     if (btnp(2)) then
         sfx(2)
-        gameState_menuControl_cursor = max(1, gameState_menuControl_cursor - 1)
-        gameState_currentGamePosition = gameState_boardControl_positionsHistory[gameState_menuControl_cursor]
+        gs_mnCsr = max(1, gs_mnCsr - 1)
+        gs_curGmPos = gs_posHtr[gs_mnCsr]
     elseif (btnp(3)) then
         sfx(2)
-        gameState_menuControl_cursor = min(gameState_menuControl_cursor + 1, #gameState_boardControl_positionsHistory)
-        gameState_currentGamePosition = gameState_boardControl_positionsHistory[gameState_menuControl_cursor]
+        gs_mnCsr = min(gs_mnCsr + 1, #gs_posHtr)
+        gs_curGmPos = gs_posHtr[gs_mnCsr]
     elseif (btnp(4)) then
         sfx(1)
-        gameState_currentGamePosition = deep_copy(gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory])
-        gameState_currentScreen = "chess"
-        gameState_boardControl_cursorActive = true
+        gs_curGmPos = deep_copy(gs_posHtr[#gs_posHtr])
+        gs_scrn = "chess"
+        gs_csrActv = true
 
         -- Delay - avoid freez in menu
         add(async_to_run, cocreate(function()
             for i=0,3 do
                 yield()
             end
-            gameState_moveAnimationFinished = true
+            gs_mvAnimFin = true
         end))
     elseif (btnp(5)) then
         sfx(1)
-        while #gameState_boardControl_movesNotation > gameState_menuControl_cursor do
-            del(gameState_boardControl_movesNotation, gameState_boardControl_movesNotation[#gameState_boardControl_movesNotation])
+        while #gs_mvsNtn > gs_mnCsr do
+            del(gs_mvsNtn, gs_mvsNtn[#gs_mvsNtn])
         end
-        while #gameState_boardControl_positionsHistory > gameState_menuControl_cursor do
-            del(gameState_boardControl_positionsHistory, gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory])
+        while #gs_posHtr > gs_mnCsr do
+            del(gs_posHtr, gs_posHtr[#gs_posHtr])
         end
-        gameState_currentGamePosition = deep_copy(gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory])
-        gameState_boardControl_cursorActive = not ((gameState_currentGamePosition.whiteTurn and gameState_computerControlsWhite) or (not gameState_currentGamePosition.whiteTurn and gameState_computerControlsBlack));
-        gameState_currentScreen = "chess";
-        gameState_matchOver = nil
+        gs_curGmPos = deep_copy(gs_posHtr[#gs_posHtr])
+        gs_csrActv = not ((gs_curGmPos.whiteTurn and gs_cpuWt) or (not gs_curGmPos.whiteTurn and gs_cpuBk));
+        gs_scrn = "chess";
+        gs_matchOvr = nil
 
         -- Delay - avoid freez in menu
         add(async_to_run, cocreate(function()
             for i=0,3 do
                 yield()
             end
-            gameState_moveAnimationFinished = true
+            gs_mvAnimFin = true
         end))
     end
 
@@ -385,10 +385,10 @@ function lucania_evaluatePosition(position)
     local value = 0
     for x = 1, 8 do
         for y = 1, 8 do
-            local piece = position.board[boardIndex(vector(x, y))]
-            if piece ~= "." then
-                local pieceValue = lucania_sunfish_pst[piece][(y - 1) * 8 + x]
-                value = value + pieceValue * (isWhitePiece(piece) and 1 or -1)
+            local pc = position.board[boardIndex(vector(x, y))]
+            if pc ~= "." then
+                local pieceValue = lucania_sunfish_pst[pc][(y - 1) * 8 + x]
+                value = value + pieceValue * (isWhitePiece(pc) and 1 or -1)
             end
         end
     end
@@ -401,7 +401,7 @@ function lucania_orderMoves(moves, killerMoves, depth)
 
         if move.takes then
             local victimVal = lucania_piece_value[to_upper(move.takes)] or 0
-            local attackerVal = lucania_piece_value[to_upper(move.piece)] or 1
+            local attackerVal = lucania_piece_value[to_upper(move.pc)] or 1
             score = 10000 + victimVal - attackerVal / 100
         end
 
@@ -440,315 +440,420 @@ PIECE_MOVES = {
     b = split("11, -11, 9, -9"),
     Q = split("1, -1, 10, -10, 11, -11, 9, -9"),
     q = split("1, -1, 10, -10, 11, -11, 9, -9"),
-    K = split("1, -1, 10, -10, 11, -11, 9, -9, 2, -2"),
-    k = split("1, -1, 10, -10, 11, -11, 9, -9, 2, -2")
+    K = split("1, -1, 10, -10, 11, -11, 9, -9"),
+    k = split("1, -1, 10, -10, 11, -11, 9, -9")
 }
 
+function get960StartingPosition()
+    local pos = getStartingPosition()
+    local options = {1,3,5,7}
+    local b1 = rnd(options)
+    local b2 = rnd(options) + 1
+
+    options = split"1,2,3,4,5,6,7,8"
+    del(options, b1)
+    del(options, b2)
+    local q = rnd(options)
+    del(options, q)
+    local n1 = rnd(options)
+    del(options, n1)
+    local n2 = rnd(options) 
+    del(options, n2)
+
+    local r1 = options[1]
+    local r2 = options[3]
+    local k = options[2]
+
+    pos.board[21 + b1] = "B"
+    pos.board[21 + b2] = "B"
+    pos.board[21 + q] = "Q"
+    pos.board[21 + n1] = "N"
+    pos.board[21 + n2] = "N"
+    pos.board[21 + r1] = "R"
+    pos.board[21 + r2] = "R"
+    pos.board[21 + k] = "K"
+    pos.whiteOrigARookPosition = 21 + r1
+    pos.whiteOrigHRookPosition = 21 + r2
+
+    pos.board[91 + b1] = "b"
+    pos.board[91 + b2] = "b"
+    pos.board[91 + q] = "q"
+    pos.board[91 + n1] = "n"
+    pos.board[91 + n2] = "n"
+    pos.board[91 + r1] = "r"
+    pos.board[91 + r2] = "r"
+    pos.board[91 + k] = "k"
+    pos.blackOrigARookPosition = 91 + r1
+    pos.blackOrigHRookPosition = 91 + r2
+
+    pos.hash = getPositionHash(pos)
+    pos.visitedPositions[1] = getFen(pos)
+    return pos
+end
+
 function getStartingPosition()
-    local position = {
+    local pos = {
         board = split(FRESH_BOARD),
         whiteTurn = true,
         enPassant = nil,
-        capturedPieces = {
+        capdPcs = {
             white = {},
             black = {}
         },
-        whiteCastleKingside = true,
-        whiteCastleQueenside = true,
-        blackCastleKingside = true,
-        blackCastleQueenside = true,
+        wtCslH = true,
+        wtCslA = true,
+        whiteOrigHRookPosition = 29,
+        whiteOrigARookPosition = 22,
+        bkCslH = true,
+        bkCslA = true,
+        blackOrigHRookPosition = 99,
+        blackOrigARookPosition = 92,
         visitedPositions = {},
         movesSinceLastCapture = 0
     }
-    position.hash = getPositionHash(position)
-    return position
+    pos.hash = getPositionHash(pos)
+    pos.visitedPositions[1] = getFen(pos)
+    return pos
 end
 
 -- No legal check, returns undo changes
-function makeMove(position, from, to)
+function makeMove(pos, from, to)
 
-    local board = position.board
-    local piece = board[from]
+    local board = pos.board
+    local pc = board[from]
     local capturedPiece = board[to]
 
     local undoMove = {
         boardChanges = {},
         capture = nil,
-        movesSinceLastCapture = position.movesSinceLastCapture,
-        enPassant = position.enPassant,
-        whiteCastleKingside = position.whiteCastleKingside,
-        whiteCastleQueenside = position.whiteCastleQueenside,
-        blackCastleKingside = position.blackCastleKingside,
-        blackCastleQueenside = position.blackCastleQueenside,
+        movesSinceLastCapture = pos.movesSinceLastCapture,
+        enPassant = pos.enPassant,
+        wtCslH = pos.wtCslH,
+        wtCslA = pos.wtCslA,
+        bkCslH = pos.bkCslH,
+        bkCslA = pos.bkCslA,
     }
-    undoMove.boardChanges[from] = piece
+    undoMove.boardChanges[from] = pc
     undoMove.boardChanges[to] = capturedPiece
 
     -- EP
-    if (piece == "p" or piece == "P") and position.enPassant and position.enPassant == to then
-        local enPassantPawn = to + (position.whiteTurn and -10 or 10)
-        capturedPiece = board[enPassantPawn]
-        board[enPassantPawn] = "."
-        undoMove.boardChanges[enPassantPawn] = capturedPiece
+    if (pc == "p" or pc == "P") and pos.enPassant and pos.enPassant == to then
+        local epPawn = to + (pos.whiteTurn and -10 or 10)
+        capturedPiece = board[epPawn]
+        board[epPawn] = "."
+        undoMove.boardChanges[epPawn] = capturedPiece
     end
 
     board[from] = "."
-    board[to] = piece
+    board[to] = pc
 
-    position.board = board
+    pos.board = board
 
-    if capturedPiece ~= "." then
-        position.capturedPieces[position.whiteTurn and "white" or "black"][#position.capturedPieces[position.whiteTurn and "white" or "black"] + 1] = capturedPiece
-        position.movesSinceLastCapture = 0
+    if (capturedPiece ~= ".") and (isWhitePiece(capturedPiece) ~= isWhitePiece(pc))
+    then
+        pos.capdPcs[pos.whiteTurn and "white" or "black"][#pos.capdPcs[pos.whiteTurn and "white" or "black"] + 1] = capturedPiece
+        pos.movesSinceLastCapture = 0
         undoMove.capture = capturedPiece
     else
-        position.movesSinceLastCapture = position.movesSinceLastCapture + 1
+        pos.movesSinceLastCapture = pos.movesSinceLastCapture + 1
     end
 
     -- Mark EP sq
-    if (piece == "p" or piece == "P") and (abs(from - to) == 20)
+    if (pc == "p" or pc == "P") and (abs(from - to) == 20)
     then
-        position.enPassant = to + (position.whiteTurn and -10 or 10)
+        pos.enPassant = to + (pos.whiteTurn and -10 or 10)
     else
-        position.enPassant = nil
+        pos.enPassant = nil
     end
 
-    -- Castling
-    if piece == "K" then
-        if to == 28 and position.whiteCastleKingside then
-            -- W K-side
-            board[29] = "."
+    -- Castl
+    if pc == "K" then
+        if to == 28 and pos.wtCslH then
+            board[pos.whiteOrigHRookPosition] = (to == pos.whiteOrigHRookPosition) and "K" or "."
             board[27] = "R"
-            undoMove.boardChanges[29] = "R"
-            undoMove.boardChanges[27] = "."
-        elseif to == 24 and position.whiteCastleQueenside then
-            -- W Q-side
-            board[22] = "."
+            undoMove.boardChanges[pos.whiteOrigHRookPosition] = "R"
+            undoMove.boardChanges[27] = (from == 27) and "K" or "."
+        elseif to == 24 and pos.wtCslA then
+            board[pos.whiteOrigARookPosition] = (to == pos.whiteOrigARookPosition) and "K" or "."
             board[25] = "R"
-            undoMove.boardChanges[22] = "R"
-            undoMove.boardChanges[25] = "."
+            undoMove.boardChanges[pos.whiteOrigARookPosition] = "R"
+            undoMove.boardChanges[25] = (from == 25) and "K" or "."
         end
-    elseif piece == "k" then
-        if to == 98 and position.blackCastleKingside then
-            -- B K-side
-            board[99] = "."
+    elseif pc == "k" then
+        if to == 98 and pos.bkCslH then
+            board[pos.blackOrigHRookPosition] = (to == pos.blackOrigHRookPosition) and "k" or "."
             board[97] = "r"
-            undoMove.boardChanges[99] = "r"
-            undoMove.boardChanges[97] = "."
-        elseif to == 94 and position.blackCastleQueenside then
-            -- B Q-side
-            board[92] = "."
+            undoMove.boardChanges[pos.blackOrigHRookPosition] = "r"
+            undoMove.boardChanges[97] = (from == 97) and "k" or "."
+        elseif to == 94 and pos.bkCslA then
+            board[pos.blackOrigARookPosition] = (to == pos.blackOrigARookPosition) and "k" or "."
             board[95] = "r"
-            undoMove.boardChanges[92] = "r"
-            undoMove.boardChanges[95] = "."
+            undoMove.boardChanges[pos.blackOrigARookPosition] = "r"
+            undoMove.boardChanges[95] = (from == 95) and "k" or "."
         end
     end
 
     -- Castling rights
-    if piece == "K" then
-        position.whiteCastleKingside = false
-        position.whiteCastleQueenside = false
-    elseif piece == "k" then
-        position.blackCastleKingside = false
-        position.blackCastleQueenside = false
+    if pc == "K" then
+        pos.wtCslH = false
+        pos.wtCslA = false
+    elseif pc == "k" then
+        pos.bkCslH = false
+        pos.bkCslA = false
     end
 
-    if from == 29 or to == 29 then
-        position.whiteCastleKingside = false
-    elseif from == 22 or to == 22 then
-        position.whiteCastleQueenside = false
-    elseif from == 99 or to == 99 then
-        position.blackCastleKingside = false
-    elseif from == 92 or to == 92 then
-        position.blackCastleQueenside = false
+    if from == pos.whiteOrigHRookPosition or to == pos.whiteOrigHRookPosition then
+        pos.wtCslH = false
+    elseif from == pos.whiteOrigARookPosition or to == pos.whiteOrigARookPosition then
+        pos.wtCslA = false
+    elseif from == pos.blackOrigHRookPosition or to == pos.blackOrigHRookPosition then
+        pos.bkCslH = false
+    elseif from == pos.blackOrigARookPosition or to == pos.blackOrigARookPosition then
+        pos.bkCslA = false
     end
 
     -- Promotion
-    if (piece == "P" and to >= 92) then
+    if (pc == "P" and to >= 92) then
         board[to] = "Q"
-    elseif (piece == "p" and to <= 29) then
+    elseif (pc == "p" and to <= 29) then
         board[to] = "q"
     end
 
-    position.whiteTurn = not position.whiteTurn
-    position.visitedPositions[#position.visitedPositions + 1] = getPositionId(position)
+    pos.whiteTurn = not pos.whiteTurn
+    pos.visitedPositions[#pos.visitedPositions + 1] = getFen(pos)
 
     return undoMove
 end
 
-function undoMove(position, undoMove)
-    for index, piece in pairs(undoMove.boardChanges) do
-        position.board[index] = piece
+function undoMove(pos, undoMove)
+    for index, pc in pairs(undoMove.boardChanges) do
+        pos.board[index] = pc
     end
     if (undoMove.capture) then
-        position.capturedPieces[position.whiteTurn and "black" or "white"][#position.capturedPieces[position.whiteTurn and "black" or "white"]] = nil
+        pos.capdPcs[pos.whiteTurn and "black" or "white"][#pos.capdPcs[pos.whiteTurn and "black" or "white"]] = nil
     end
-    position.whiteTurn = not position.whiteTurn
-    position.visitedPositions[#position.visitedPositions] = nil
-    position.movesSinceLastCapture = undoMove.movesSinceLastCapture
-    position.enPassant = undoMove.enPassant
-    position.whiteCastleKingside = undoMove.whiteCastleKingside
-    position.whiteCastleQueenside = undoMove.whiteCastleQueenside
-    position.blackCastleKingside = undoMove.blackCastleKingside
-    position.blackCastleQueenside = undoMove.blackCastleQueenside
+    pos.whiteTurn = not pos.whiteTurn
+    pos.visitedPositions[#pos.visitedPositions] = nil
+    pos.movesSinceLastCapture = undoMove.movesSinceLastCapture
+    pos.enPassant = undoMove.enPassant
+    pos.wtCslH = undoMove.wtCslH
+    pos.wtCslA = undoMove.wtCslA
+    pos.bkCslH = undoMove.bkCslH
+    pos.bkCslA = undoMove.bkCslA
 end
 
-function getPieceLegalMoves(position, square, ignoreCheck)
+function getPieceLegalMoves(pos, sq, ignoreCheck)
     ignoreCheck = ignoreCheck or false
 
-    local board = position.board
-    local squareIndex = boardIndex(square)
+    local board = pos.board
+    local sqI = boardIndex(sq)
 
-    local piece = position.board[boardIndex(square)]
-    movements = PIECE_MOVES[piece]
-    local legalMoves = {}
-    local legalMovesCaptures = {}
-    local legalMovesChecks = {}
+    local pc = pos.board[boardIndex(sq)]
+    movements = PIECE_MOVES[pc]
+    local lgMvs = {}
+    local lgMvCaps = {}
+    local lgMvCx = {}
 
-    for _, movement in pairs(movements) do
-        local crawl = (to_lower(piece) == 'r' or to_lower(piece) == 'b' or to_lower(piece) == 'q') and 7 or 1
-        local capturesOrPromotes = false
+    for _, m in pairs(movements) do
+        local crawl = (to_lower(pc) == 'r' or to_lower(pc) == 'b' or to_lower(pc) == 'q') and 7 or 1
+        local capOrProm = false
 
         for i = 1, crawl do
-            local targetIndex = squareIndex + movement * i
-            local targetPiece = board[targetIndex]
-            if targetPiece == "x" or (targetPiece ~= "." and isBlackPiece(piece) == isBlackPiece(targetPiece)) then
+            local tgtIdx = sqI + m * i
+            local tgtPc = board[tgtIdx]
+            if tgtPc == "x" or (tgtPc ~= "." and isBlackPiece(pc) == isBlackPiece(tgtPc)) then
                 
-                goto continueNextMovement
+                goto cntNxMvt
             end
 
             -- P
-            if to_lower(piece) == "p" then
-                if abs(movement) == 20 then
+            if to_lower(pc) == "p" then
+                if abs(m) == 20 then
                     -- 2-step
-                    if (square.y ~= 2 and square.y ~= 7) or targetPiece ~= "." or board[squareIndex + movement/2] ~= "." then
-                        goto continueNextMovement
+                    if (sq.y ~= 2 and sq.y ~= 7) or tgtPc ~= "." or board[sqI + m/2] ~= "." then
+                        goto cntNxMvt
                     end
-                elseif abs(movement) == 10 then
+                elseif abs(m) == 10 then
                     -- 1-step
-                    if targetPiece ~= "." then
-                        goto continueNextMovement
+                    if tgtPc ~= "." then
+                        goto cntNxMvt
                     end
-                    capturesOrPromotes = (square.y == (isWhitePiece(piece) and 8 or 1)) and "Q"
+                    capOrProm = (sq.y == (isWhitePiece(pc) and 8 or 1)) and "Q"
                 else 
                     -- Takes
-                    if (targetPiece == "." and not (position.enPassant and (position.enPassant == targetIndex))) or (targetPiece ~= "." and (isBlackPiece(piece) == isBlackPiece(targetPiece))) then
+                    if (tgtPc == "." and not (pos.enPassant and (pos.enPassant == tgtIdx))) or (tgtPc ~= "." and (isBlackPiece(pc) == isBlackPiece(tgtPc))) then
                         -- No take
-                        goto continueNextMovement
+                        goto cntNxMvt
                     else
-                        capturesOrPromotes = (targetPiece ~= ".") and targetPiece or "P"
-                    end
-                end
-
-            -- K
-            elseif to_lower(piece) == "k" then
-                if movement == 2 then
-                    -- Kside cstl
-                    if  (isWhitePiece(piece) and not position.whiteCastleKingside) or 
-                        (isBlackPiece(piece) and not position.blackCastleKingside) or
-                        board[squareIndex + 1] ~= "." or 
-                        board[squareIndex + 2] ~= "." or
-                        -- Check
-                        (
-                            (not ignoreCheck) and (
-                                isSquareAttacked2(position, squareIndex, isWhitePiece(piece)) or
-                                isSquareAttacked2(position, squareIndex + 1, isWhitePiece(piece))
-                            )
-                        )
-                    then
-                        goto continueNextMovement
-                    end
-                elseif movement == -2 then
-                    -- Qside cstl
-                    if  (isWhitePiece(piece) and not position.whiteCastleQueenside) or 
-                        (isBlackPiece(piece) and not position.blackCastleQueenside) or
-                        board[squareIndex - 1] ~= "." or 
-                        board[squareIndex - 2] ~= "." or
-                        board[squareIndex - 3] ~= "." or
-                        -- Check
-                        (
-                            (not ignoreCheck) and (
-                                isSquareAttacked2(position, squareIndex, isWhitePiece(piece)) or
-                                isSquareAttacked2(position, squareIndex - 1, isWhitePiece(piece)) or 
-                                isSquareAttacked2(position, squareIndex - 2, isWhitePiece(piece))
-                            )
-                        )
-                    then
-                        goto continueNextMovement
+                        capOrProm = (tgtPc ~= ".") and tgtPc or "P"
                     end
                 end
             end
 
-            if targetPiece ~= "." then
-                if (isBlackPiece(piece) == isBlackPiece(targetPiece)) then
+            if tgtPc ~= "." then
+                if (isBlackPiece(pc) == isBlackPiece(tgtPc)) then
                     -- No take own
-                    goto continueNextMovement
+                    goto cntNxMvt
                 else
-                    capturesOrPromotes = to_upper(targetPiece)
+                    capOrProm = to_upper(tgtPc)
                 end
             end
 
             if (not ignoreCheck) then
-                local undo = makeMove(position, squareIndex, targetIndex)
-                if (not isCheck(position, isWhitePiece(piece))) then
-                    legalMoves[#legalMoves + 1] = targetIndex
-                    if (capturesOrPromotes) then
-                        legalMovesCaptures[targetIndex] = capturesOrPromotes
+                local undo = makeMove(pos, sqI, tgtIdx)
+                if (not isCheck(pos, isWhitePiece(pc))) then
+                    lgMvs[#lgMvs + 1] = tgtIdx
+                    if (capOrProm) then
+                        lgMvCaps[tgtIdx] = capOrProm
                     end
-                    if (isCheck(position, isBlackPiece(piece))) then
-                        legalMovesChecks[targetIndex] = true
+                    if (isCheck(pos, isBlackPiece(pc))) then
+                        lgMvCx[tgtIdx] = true
                     end
                 end
-                undoMove(position, undo)
+                undoMove(pos, undo)
             else
-                legalMoves[#legalMoves + 1] = targetIndex
-                if (capturesOrPromotes) then
-                    legalMovesCaptures[targetIndex] = capturesOrPromotes
+                lgMvs[#lgMvs + 1] = tgtIdx
+                if (capOrProm) then
+                    lgMvCaps[tgtIdx] = capOrProm
                 end
             end
 
-            if targetPiece ~= "." then
-                goto continueNextMovement
+            if tgtPc ~= "." then
+                goto cntNxMvt
             end
 
         end
 
-        ::continueNextMovement::
+        ::cntNxMvt::
     end
 
-    return legalMoves, legalMovesCaptures, legalMovesChecks
+    -- Castling - support 960
+    if to_lower(pc) == "k" then
+        if isWhitePiece(pc) then
+            -- White
+            if pos.wtCslH and not isSqAtk(pos, 28, isWhitePiece(pc)) then
+                -- king's route to final sq clear and no harm
+                local canDo = true
+                if sqI < 28 then
+                    for i = sqI + 1, 28 do
+                        if (board[i] ~= "." and board[i] ~= "R") or isSqAtk(pos, i, isWhitePiece(pc)) then
+                            canDo = false
+                            break
+                        end
+                    end
+                end
+                
+                if sqI ~= 27 and board[27] ~= "." then
+                    canDo = false
+                end
+
+
+                if canDo then
+                    lgMvs[#lgMvs + 1] = 28
+                end
+            end
+            if pos.wtCslA and not isSqAtk(pos, 24, isWhitePiece(pc)) then
+                local canDo = true
+                if sqI > 24 then
+                    for i = sqI - 1, 24, -1 do
+                        if (board[i] ~= "." and board[i] ~= "R") or isSqAtk(pos, i, isWhitePiece(pc)) then
+                            canDo = false
+                            break
+                        end
+                    end
+                elseif sqI < 24 then
+                    if board[24] ~= "." or isSqAtk(pos, 24, isWhitePiece(pc)) then
+                        canDo = false
+                    end
+                end
+
+                if sqI ~= 25 and board[25] ~= "." then
+                    canDo = false
+                end
+
+                if canDo then
+                    lgMvs[#lgMvs + 1] = 24
+                end
+            end
+        else
+            if pos.bkCslH and not isSqAtk(pos, 98, isWhitePiece(pc)) then
+                local canDo = true
+                if sqI < 98 then
+                    for i = sqI + 1, 98 do
+                        if (board[i] ~= "." and board[i] ~= "r") or isSqAtk(pos, sqI, isWhitePiece(pc)) then
+                            canDo = false
+                            break
+                        end
+                    end
+                end
+                
+                if sqI ~= 97 and board[97] ~= "." then
+                    canDo = false
+                end
+
+                if canDo then
+                    lgMvs[#lgMvs + 1] = 98
+                end
+            end
+            if pos.bkCslA and not isSqAtk(pos, 94, isWhitePiece(pc)) then
+                local canDo = true
+                if sqI > 94 then
+                    for i = sqI - 1, 94, -1 do
+                        if (board[i] ~= "." and board[i] ~= "r") or isSqAtk(pos, sqI, isWhitePiece(pc)) then
+                            canDo = false
+                            break
+                        end
+                    end
+                elseif sqI < 94 then
+                    if board[94] ~= "." or isSqAtk(pos, 94, isWhitePiece(pc)) then
+                        canDo = false
+                    end
+                end
+
+                if sqI ~= 95 and board[95] ~= "." then
+                    canDo = false
+                end
+
+                if canDo then
+                    lgMvs[#lgMvs + 1] = 94
+                end
+            end
+        end
+    end
+
+    return lgMvs, lgMvCaps, lgMvCx
 end
 
-function getAllLegalMoves(position, white, ignoreCheck)
-    local legalMoves = {}
+function getAllLegalMoves(pos, white, ignoreCheck)
+    local lgMvs = {}
     for i = 21, 100 do
-        local square = boardIndexToSquare(i)
-        local piece = position.board[i]
-        if (white and isWhitePiece(piece)) or (not white and isBlackPiece(piece)) then 
-            local moves, captures, checks = getPieceLegalMoves(position, square, ignoreCheck)
+        local sq = boardIndexToSquare(i)
+        local pc = pos.board[i]
+        if (white and isWhitePiece(pc)) or (not white and isBlackPiece(pc)) then 
+            local moves, captures, checks = getPieceLegalMoves(pos, sq, ignoreCheck)
             for _, move in pairs(moves) do
-                legalMoves[#legalMoves + 1] = {from = i, to = move, takes = captures[move], check = checks[move], piece = piece}
+                lgMvs[#lgMvs + 1] = {from = i, to = move, takes = captures[move], check = checks[move], pc = pc}
             end
         end
     end
-    return legalMoves
+    return lgMvs
 end
 
-function isSquareAttacked2(position, squareIndex, white)
-    local board = position.board
+function isSqAtk(pos, sqI, white)
+    local board = pos.board
 
     -- by P
-    local enemyPawnAttackDirection = white and 10 or -10    -- Actually the opposite, we are looking at the pawn, not pawn POV
+    local enemyPawnAttackDirection = white and 10 or -10
     local enemyPawn = white and "p" or "P"
 
-    if board[squareIndex + enemyPawnAttackDirection - 1] == enemyPawn or
-       board[squareIndex + enemyPawnAttackDirection + 1] == enemyPawn then
+    if board[sqI + enemyPawnAttackDirection - 1] == enemyPawn or
+       board[sqI + enemyPawnAttackDirection + 1] == enemyPawn then
         return true
     end
 
     -- by N
     for _,move in ipairs(PIECE_MOVES.N) do
-        local knightIndex = squareIndex + move
+        local knightIndex = sqI + move
         if board[knightIndex] == (white and "n" or "N") then
             return true
         end
@@ -757,13 +862,13 @@ function isSquareAttacked2(position, squareIndex, white)
     -- by B,Q,K
     for _,move in ipairs(PIECE_MOVES.B) do
         for i = 1, 7 do
-            local targetIndex = squareIndex + move * i
-            if i == 1 and (board[targetIndex] == (white and "k" or "K")) then
+            local tgtIdx = sqI + move * i
+            if i == 1 and (board[tgtIdx] == (white and "k" or "K")) then
                 return true
             end
-            if board[targetIndex] == (white and "b" or "B") or board[targetIndex] == (white and "q" or "Q") then
+            if board[tgtIdx] == (white and "b" or "B") or board[tgtIdx] == (white and "q" or "Q") then
                 return true
-            elseif board[targetIndex] ~= "." then
+            elseif board[tgtIdx] ~= "." then
                 break -- shielded
             end
         end
@@ -772,13 +877,13 @@ function isSquareAttacked2(position, squareIndex, white)
     -- by R,Q,K
     for _,move in ipairs(PIECE_MOVES.R) do
         for i = 1, 7 do
-            local targetIndex = squareIndex + move * i
-            if i == 1 and (board[targetIndex] == (white and "k" or "K")) then
+            local tgtIdx = sqI + move * i
+            if i == 1 and (board[tgtIdx] == (white and "k" or "K")) then
                 return true
             end
-            if board[targetIndex] == (white and "r" or "R") or board[targetIndex] == (white and "q" or "Q") then
+            if board[tgtIdx] == (white and "r" or "R") or board[tgtIdx] == (white and "q" or "Q") then
                 return true
-            elseif board[targetIndex] ~= "." then
+            elseif board[tgtIdx] ~= "." then
                 break -- shielded
             end
         end
@@ -787,11 +892,11 @@ function isSquareAttacked2(position, squareIndex, white)
     return false
 end
 
-function isCheck(position, white)
+function isCheck(pos, white)
     local kingIndex = nil
     for i = 21, 100 do
-        local piece = position.board[i]
-        if (white and piece == "K") or (not white and piece == "k") then
+        local pc = pos.board[i]
+        if (white and pc == "K") or (not white and pc == "k") then
             kingIndex = i
         end
     end
@@ -800,17 +905,17 @@ function isCheck(position, white)
         return false
     end
 
-    return isSquareAttacked2(position, kingIndex, white)
+    return isSqAtk(pos, kingIndex, white)
 end
 
-function isMate(position, white)
-    local legalMoves = getAllLegalMoves(position, white, false)
-    return (#legalMoves == 0) and isCheck(position, white)
+function isMate(pos, white)
+    local lgMvs = getAllLegalMoves(pos, white, false)
+    return (#lgMvs == 0) and isCheck(pos, white)
 end
 
-function isStalemate(position, white)
-    local legalMoves = getAllLegalMoves(position, white, false)
-    return (#legalMoves == 0) and not isCheck(position, white)
+function isStalemate(pos, white)
+    local lgMvs = getAllLegalMoves(pos, white, false)
+    return (#lgMvs == 0) and not isCheck(pos, white)
 end
 -- src/graphics.lua
 --
@@ -873,7 +978,7 @@ animations_movePiece = nil
 animations_capturePiece = {}
 
 function animateCapturePiece(index)
-    local piece = gameState_currentGamePosition.board[index]
+    local piece = gs_curGmPos.board[index]
     local pieceSprite = PIECES_SPRITES[piece]
 
     -- Prepare sandbox
@@ -973,11 +1078,11 @@ end
 function processAnimations()
 
     -- Anim trig logic
-    local pieceLifted = gameState_boardControl_cursorActive and boardIndex(gameState_boardControl_pieceLifted or gameState_boardControl_cursor)
-    local board = gameState_currentGamePosition.board
-    local whiteTurn = gameState_currentGamePosition.whiteTurn
+    local pieceLifted = gs_csrActv and boardIndex(gs_pcLift or gs_csr)
+    local board = gs_curGmPos.board
+    local whiteTurn = gs_curGmPos.whiteTurn
 
-    if not pieceLifted or not gameState_boardControl_cursorActive or (board[pieceLifted] >= "a" and whiteTurn) or
+    if not pieceLifted or not gs_csrActv or (board[pieceLifted] >= "a" and whiteTurn) or
         (board[pieceLifted] < "a" and not whiteTurn) then
             -- No lift opponent pieces
             pieceLifted = nil
@@ -992,13 +1097,13 @@ function processAnimations()
         animateReleaseAllPieces()
     end
 
-    if gameState_boardControl_pieceMoving and not animations_movePiece then
-        animateMovePiece(gameState_boardControl_pieceMoving.from, gameState_boardControl_pieceMoving.to)
+    if gs_pcMvng and not animations_movePiece then
+        animateMovePiece(gs_pcMvng.from, gs_pcMvng.to)
     end
-    if gameState_boardControl_pieceCaptured and 
-        ((not animations_capturePiece[boardIndex(gameState_boardControl_pieceCaptured)]) or 
-         (animations_capturePiece[boardIndex(gameState_boardControl_pieceCaptured)].age > MOVE_ANIM_DURATION)) then
-        animateCapturePiece(boardIndex(gameState_boardControl_pieceCaptured))
+    if gs_pcCptd and 
+        ((not animations_capturePiece[boardIndex(gs_pcCptd)]) or 
+         (animations_capturePiece[boardIndex(gs_pcCptd)].age > MOVE_ANIM_DURATION)) then
+        animateCapturePiece(boardIndex(gs_pcCptd))
     end
 
     -- Anim progress update
@@ -1059,7 +1164,7 @@ end
 
 function drawChessboard()
 
-    local board = gameState_currentGamePosition.board
+    local board = gs_curGmPos.board
 
     -- board frame
     line(6,16,88,16, 0)
@@ -1084,11 +1189,11 @@ function drawChessboard()
             local file = gameState_playingWhite and ix or (9 - ix)
             local rank = gameState_playingWhite and (9 - iy) or iy
             sspr(56, blackSquare and 0 or 16, 10, 10, ix * 10 -3, iy * 10 + 7)
-            if gameState_boardControl_cursorActive and gameState_boardControl_cursor.x == file and gameState_boardControl_cursor.y == rank then
-                line(ix * 10 -3, iy * 10 + 7, ix * 10 + 6, iy * 10 + 7, gameState_currentGamePosition.whiteTurn and 9 or 8)
-                line(ix * 10 -3, iy * 10 + 7, ix * 10 - 3, iy * 10 + 16, gameState_currentGamePosition.whiteTurn and 9 or 8)
-                line(ix * 10 -3, iy * 10 + 16, ix * 10 + 6, iy * 10 + 16, gameState_currentGamePosition.whiteTurn and 9 or 8)
-                line(ix * 10 + 6, iy * 10 + 7, ix * 10 + 6, iy * 10 + 16, gameState_currentGamePosition.whiteTurn and 9 or 8)
+            if gs_csrActv and gs_csr.x == file and gs_csr.y == rank then
+                line(ix * 10 -3, iy * 10 + 7, ix * 10 + 6, iy * 10 + 7, gs_curGmPos.whiteTurn and 9 or 8)
+                line(ix * 10 -3, iy * 10 + 7, ix * 10 - 3, iy * 10 + 16, gs_curGmPos.whiteTurn and 9 or 8)
+                line(ix * 10 -3, iy * 10 + 16, ix * 10 + 6, iy * 10 + 16, gs_curGmPos.whiteTurn and 9 or 8)
+                line(ix * 10 + 6, iy * 10 + 7, ix * 10 + 6, iy * 10 + 16, gs_curGmPos.whiteTurn and 9 or 8)
             end
 
             blackSquare = not blackSquare
@@ -1119,19 +1224,19 @@ function drawChessboard()
             end
 
             if piece ~= "." then
-                if animations_movePiece and gameState_boardControl_pieceMoving and gameState_boardControl_pieceMoving.from.x == file and gameState_boardControl_pieceMoving.from.y == rank then
+                if animations_movePiece and gs_pcMvng and gs_pcMvng.from.x == file and gs_pcMvng.from.y == rank then
                     drawPiece(piece, animations_movePiece.x, animations_movePiece.y, "move")
                 else
                     local dy = animations_liftPiece[bIndex] and animations_liftPiece[bIndex].dy or (animations_releasePiece[bIndex] and animations_releasePiece[bIndex].dy or 0)
-                    if not (gameState_boardControl_pieceCaptured and gameState_boardControl_pieceCaptured.x == file and gameState_boardControl_pieceCaptured.y == rank) then
+                    if not (gs_pcCptd and gs_pcCptd.x == file and gs_pcCptd.y == rank) then
                         drawPiece(piece, ix * 10 - 2, iy * 10 + 16 + dy)
                     end
                 end
             end
 
-            if contains(gameState_boardControl_currentPieceLegalMoves, bIndex) then
-                line(ix * 10, iy * 10 + 10 , ix * 10 + 3, iy * 10 + 13, gameState_currentGamePosition.whiteTurn and 9 or 8)
-                line(ix * 10, iy * 10 + 13 , ix * 10 + 3, iy * 10 + 10, gameState_currentGamePosition.whiteTurn and 9 or 8)
+            if contains(gs_curPcLegMvs, bIndex) then
+                line(ix * 10, iy * 10 + 10 , ix * 10 + 3, iy * 10 + 13, gs_curGmPos.whiteTurn and 9 or 8)
+                line(ix * 10, iy * 10 + 13 , ix * 10 + 3, iy * 10 + 10, gs_curGmPos.whiteTurn and 9 or 8)
             end
             blackSquare = not blackSquare
         end
@@ -1147,11 +1252,11 @@ end
 function drawChessboardUI(viewNotation)
     viewNotation = viewNotation or nil
     -- Captd pieces
-    for i, piece in pairs(gameState_currentGamePosition.capturedPieces[gameState_playingWhite and "black" or "white"]) do
+    for i, piece in pairs(gs_curGmPos.capdPcs[gameState_playingWhite and "black" or "white"]) do
         local pieceSprite = PIECES_SPRITES[piece]
         sspr(pieceSprite.x, pieceSprite.y, 8, pieceSprite.h, 1 + i * 5, 14 - pieceSprite.h)
     end
-    for i, piece in pairs(gameState_currentGamePosition.capturedPieces[gameState_playingWhite and "white" or "black"]) do
+    for i, piece in pairs(gs_curGmPos.capdPcs[gameState_playingWhite and "white" or "black"]) do
         local pieceSprite = PIECES_SPRITES[piece]
         sspr(pieceSprite.x, pieceSprite.y, 8, pieceSprite.h, 1 + i * 5, 106 - pieceSprite.h)
     end
@@ -1159,9 +1264,9 @@ function drawChessboardUI(viewNotation)
     -- Notation
     local firstDisplayedMoveIndex = 1
     if (viewNotation) then
-        firstDisplayedMoveIndex = max(0, min(gameState_menuControl_cursor - 6, #gameState_boardControl_movesNotation - 12))
+        firstDisplayedMoveIndex = max(0, min(gs_mnCsr - 6, #gs_mvsNtn - 12))
     else
-        firstDisplayedMoveIndex = max(#gameState_boardControl_movesNotation - 12, 0)
+        firstDisplayedMoveIndex = max(#gs_mvsNtn - 12, 0)
     end
     
     if firstDisplayedMoveIndex > 0 then
@@ -1176,29 +1281,29 @@ function drawChessboardUI(viewNotation)
         spr(41, i, 99)
     end
 
-    if #gameState_boardControl_movesNotation == 0 then
+    if #gs_mvsNtn == 0 then
         print_custom("1.", 95, 16, 8)
 
 
     else
-        for i = 1, min(#gameState_boardControl_movesNotation, 12) do
+        for i = 1, min(#gs_mvsNtn, 12) do
             local moveIndex = firstDisplayedMoveIndex + i
             if moveIndex % 2 == 1 then
                 print_custom( "" .. (flr(moveIndex / 2) + 1) .. ".", 95, 10 + i * 6, 8)
-                if viewNotation and moveIndex == gameState_menuControl_cursor then
+                if viewNotation and moveIndex == gs_mnCsr then
                     print_custom( "" .. (flr(moveIndex / 2) + 1) .. ".", 96, 10 + i * 6, 7)
                 end
             else
                 print_custom("...", 95, 10 + i * 6, 0)
-                if viewNotation and moveIndex == gameState_menuControl_cursor then
+                if viewNotation and moveIndex == gs_mnCsr then
                     print_custom("...", 96, 10 + i * 6, 7)
                 end
             end
 
-            if viewNotation and moveIndex == gameState_menuControl_cursor then
-                print_custom(gameState_boardControl_movesNotation[moveIndex], 106, 10 + i * 6, 9)
+            if viewNotation and moveIndex == gs_mnCsr then
+                print_custom(gs_mvsNtn[moveIndex], 106, 10 + i * 6, 9)
             end
-            print_custom(gameState_boardControl_movesNotation[moveIndex], 107, 10 + i * 6, 0)
+            print_custom(gs_mvsNtn[moveIndex], 107, 10 + i * 6, 0)
         end
     end
 
@@ -1252,34 +1357,35 @@ end
 GAME_VERSION = "1.0"
 
 -- Global Game State
-gameState_currentScreen = "menu"
+gs_scrn = "menu"
 async_to_run = {}
 
 -- - Menu state 
-gameState_menuControl_cursor = 1
-gameState_menuControl_menuState = {
+gs_mnCsr = 1    -- menu cursr pos
+gs_mnSte = {
     Variant = 1,
     versus = 1,
     Color = 1
 }
 
 -- - Chess state
-gameState_boardControl_cursorActive = false
-gameState_boardControl_pieceLifted = nil
-gameState_boardControl_pieceMoving = nil
-gameState_boardControl_pieceCaptured = nil
-gameState_boardControl_currentPieceLegalMoves = {}
-gameState_playingWhite = true
-gameState_computerControlsWhite = false
-gameState_computerControlsBlack = false
-gameState_boardControl_movesNotation = {}
-gameState_boardControl_positionsHistory = {}
-gameState_boardControl_lastMove = nil
-gameState_boardControl_lastCursorPos = {
+gs_csrActv = false
+gs_is960 = false
+gs_pcLift = nil
+gs_pcMvng = nil
+gs_pcCptd = nil
+gs_curPcLegMvs = {}
+gs_plnWt = true
+gs_cpuWt = false
+gs_cpuBk = false
+gs_mvsNtn = {}
+gs_posHtr = {}
+gs_lstMv = nil
+gs_lstCsrPos = {
     white = nil,
     black = nil
 }
-gameState_moveAnimationFinished = true
+gs_mvAnimFin = true
 lucania_coroutine = nil
 lucania_runSeconds = 0
 
@@ -1305,32 +1411,34 @@ function _update()
         if lucania_runSeconds < 0 then
             lucania_runSeconds = lucania_runSeconds + 60
         end
-        coresume(lucania_coroutine)
+        ok, err = coresume(lucania_coroutine)
+        if not ok then
+        end
     else
         lucania_coroutine = nil
         lucania_runSeconds = 0
     end
 
-    if (gameState_currentScreen == "chess") then
+    if (gs_scrn == "chess") then
         handleChessControls();
         processMoveAnimationFinished();
-    elseif (gameState_currentScreen == "menu") then
+    elseif (gs_scrn == "menu") then
         handleMainMenuControl();
-    elseif (gameState_currentScreen == "matchMenu") then
+    elseif (gs_scrn == "matchMenu") then
         handleMatchMenuControl();
-    elseif (gameState_currentScreen == "viewNotation") then
+    elseif (gs_scrn == "viewNotation") then
         handleViewNotationControl();
     end
 end
 
 function _draw()
-    if (gameState_currentScreen == "menu") then
+    if (gs_scrn == "menu") then
         drawMainMenuScreen();
-    elseif (gameState_currentScreen == "chess") then
+    elseif (gs_scrn == "chess") then
         drawChessboardScreen();
-    elseif (gameState_currentScreen == "matchMenu") then
+    elseif (gs_scrn == "matchMenu") then
         drawMatchMenuScreen();
-    elseif (gameState_currentScreen == "viewNotation") then
+    elseif (gs_scrn == "viewNotation") then
         drawViewNotationScreen();
     end
 end
@@ -1339,7 +1447,7 @@ end
 MAIN_MENU_CHOICES = {
     {
         label = "Variant",
-        options = {"Chess", "Chess"} -- Add 960 later
+        options = {"Chess", "Chess960"}
     },
     {
         label = "versus",
@@ -1354,43 +1462,44 @@ MAIN_MENU_CHOICES = {
 function handleMainMenuControl()
     if (btnp(0) or btnp(4)) then
         sfx(0)
-        gameState_menuControl_menuState[MAIN_MENU_CHOICES[gameState_menuControl_cursor].label] = gameState_menuControl_menuState[MAIN_MENU_CHOICES[gameState_menuControl_cursor].label] % 2 + 1
+        gs_mnSte[MAIN_MENU_CHOICES[gs_mnCsr].label] = gs_mnSte[MAIN_MENU_CHOICES[gs_mnCsr].label] % 2 + 1
     elseif (btnp(1)) then
         sfx(0)
-        gameState_menuControl_menuState[MAIN_MENU_CHOICES[gameState_menuControl_cursor].label] = (gameState_menuControl_menuState[MAIN_MENU_CHOICES[gameState_menuControl_cursor].label] + 2) % 2 + 1
+        gs_mnSte[MAIN_MENU_CHOICES[gs_mnCsr].label] = (gs_mnSte[MAIN_MENU_CHOICES[gs_mnCsr].label] + 2) % 2 + 1
     elseif (btnp(2)) then
         sfx(2)
-        gameState_menuControl_cursor = (gameState_menuControl_cursor - 2) % 3 + 1
+        gs_mnCsr = (gs_mnCsr - 2) % 3 + 1
     elseif (btnp(3)) then
         sfx(2)
-        gameState_menuControl_cursor = (gameState_menuControl_cursor) % 3 + 1
+        gs_mnCsr = (gs_mnCsr) % 3 + 1
     end
 
     if (btnp(5)) then
         sfx(1);
-        gameState_currentGamePosition = getStartingPosition()
-        gameState_startPosition = deep_copy(gameState_currentGamePosition)
-        gameState_boardControl_cursor = vector(4, 2)
-        gameState_boardControl_movesNotation = {}
-        gameState_boardControl_positionsHistory = {}
-        gameState_boardControl_lastMove = nil
-        gameState_boardControl_lastCursorPos = {
+        gs_is960 = gs_mnSte["Variant"] == 2
+        gs_curGmPos = gs_is960 and get960StartingPosition() or getStartingPosition()
+        gameState_startPosition = deep_copy(gs_curGmPos)
+        gs_csr = vector(4, 2)
+        gs_mvsNtn = {}
+        gs_posHtr = {}
+        gs_lstMv = nil
+        gs_lstCsrPos = {
             white = nil,
             black = nil
         }
-        gameState_matchOver = nil
-        gameState_playingWhite = gameState_menuControl_menuState.Color == 1
-        gameState_computerControlsBlack = gameState_menuControl_menuState.versus == 1 and gameState_playingWhite
-        gameState_computerControlsWhite = gameState_menuControl_menuState.versus == 1 and not gameState_playingWhite
-        gameState_boardControl_cursorActive = not ((gameState_currentGamePosition.whiteTurn and gameState_computerControlsWhite) or (not gameState_currentGamePosition.whiteTurn and gameState_computerControlsBlack));
-        gameState_currentScreen = "chess";
+        gs_matchOvr = nil
+        gameState_playingWhite = gs_mnSte.Color == 1
+        gs_cpuBk = gs_mnSte.versus == 1 and gameState_playingWhite
+        gs_cpuWt = gs_mnSte.versus == 1 and not gameState_playingWhite
+        gs_csrActv = not ((gs_curGmPos.whiteTurn and gs_cpuWt) or (not gs_curGmPos.whiteTurn and gs_cpuBk));
+        gs_scrn = "chess";
 
         -- Delay to avoid freez in menu
         add(async_to_run, cocreate(function()
             for i=0,3 do
                 yield()
             end
-            gameState_moveAnimationFinished = true
+            gs_mvAnimFin = true
         end))
     end
 end
@@ -1400,6 +1509,7 @@ function drawMainMenuScreen()
     sspr(0, 64, 128, 32, 0, 16);
 
     print_custom("v." .. GAME_VERSION, 32, 44, 9);
+    print_custom("by Argentus", 29, 51, 6);
 
     print("Start game:", 20, 66, 2)
     print("Start game:", 21, 65, 1)
@@ -1407,14 +1517,14 @@ function drawMainMenuScreen()
 
     for i, setting in pairs(MAIN_MENU_CHOICES) do
         local y = 66 + i * 8
-        nSpaces = flr((20 - #setting.options[gameState_menuControl_menuState[setting.label]]) / 2 - #setting.label)
+        nSpaces = flr((20 - #setting.options[gs_mnSte[setting.label]]) / 2 - #setting.label)
         spaces = ""
         for i = 0, nSpaces do
             spaces = spaces .. " "
         end
 
-        local text = (gameState_menuControl_cursor == i and "> " or "  ") .. setting.label .. spaces .. " << " .. setting.options[gameState_menuControl_menuState[setting.label]] .. " >> "
-        print(text, 20, y+1, gameState_menuControl_cursor == i and 8 or 5)
+        local text = (gs_mnCsr == i and "> " or "  ") .. setting.label .. spaces .. " << " .. setting.options[gs_mnSte[setting.label]] .. " >> "
+        print(text, 20, y+1, gs_mnCsr == i and 8 or 5)
         print(text, 20, y, 7)
     end
 
@@ -1428,15 +1538,15 @@ function drawMatchMenuScreen()
     drawChessboard()
     drawChessboardUI()
 
-    rectfill(14, 18, 80, 81, 1)
-    rectfill(15, 17, 80, 80, 2)
-    rectfill(16, 16, 80, 79, 5)
-    rectfill(17, 17, 79, 78, 0)
-    rectfill(18, 18, 78, 77, 15)
+    rectfill(14, 18, 80, 88, 1)
+    rectfill(15, 17, 80, 87, 2)
+    rectfill(16, 16, 80, 86, 5)
+    rectfill(17, 17, 79, 85, 0)
+    rectfill(18, 18, 78, 84, 15)
 
-    if gameState_matchOver then
-        local reason = gameState_matchOver.reason
-        local result = gameState_matchOver.result
+    if gs_matchOvr then
+        local reason = gs_matchOvr.reason
+        local result = gs_matchOvr.result
         if reason == "mate" then
             print("Checkmate", 27, 25, 9)
             print("Checkmate", 27, 24, 1)
@@ -1464,12 +1574,12 @@ function drawMatchMenuScreen()
     end
 
     local CHOICES = {
-        "Resume", "View moves", "Copy PGN", "Exit Match" 
+        "Resume", "View moves", "Copy PGN", "Copy FEN", "Exit Match" 
     }
 
     for i,option in pairs(CHOICES) do
-        print((gameState_menuControl_cursor == i and "> " or "  ") .. option, 22, 36 + i * 8, gameState_menuControl_cursor == i and 7 or 9)
-        print((gameState_menuControl_cursor == i and "> " or "  ") .. option, 23, 35 + i * 8, 2)
+        print((gs_mnCsr == i and "> " or "  ") .. option, 22, 36 + i * 8, gs_mnCsr == i and 7 or 9)
+        print((gs_mnCsr == i and "> " or "  ") .. option, 23, 35 + i * 8, 2)
     end
 
     print("(Y) back to game", 8, 120, 7);
@@ -1478,30 +1588,65 @@ end
 function handleMatchMenuControl()
     if (btnp(4)) then
         sfx(0)
-        gameState_currentScreen = "chess"
+        gs_scrn = "chess"
     end
 
     if (btnp(5)) then
         sfx(1)
-        if (gameState_menuControl_cursor == 1) then
-            gameState_currentScreen = "chess"
-        elseif (gameState_menuControl_cursor == 2) then
-            gameState_boardControl_cursorActive = false
-            gameState_currentScreen = "viewNotation"
-            gameState_menuControl_cursor = #gameState_boardControl_movesNotation
-        elseif (gameState_menuControl_cursor == 3) then
+        if (gs_mnCsr == 1) then
+            gs_scrn = "chess"
+        elseif (gs_mnCsr == 2) then
+            gs_csrActv = false
+            gs_scrn = "viewNotation"
+            gs_mnCsr = #gs_mvsNtn
+        elseif (gs_mnCsr == 3) then
             -- Copy PGN
             local pgn = ""
-            for i = 1, #gameState_boardControl_movesNotation, 2 do
+            pgn ..= "[Date \"" .. stat(90) .. "." .. stat(91) .. "." .. stat(92) .. "\"]\n"
+            pgn ..= "[White \"" .. (gs_cpuWt and "Lucania Chess Computer" or (gameState_playingWhite and "Player 1" or "Player 2")) .. "\"]\n"
+            pgn ..= "[Black \"" .. (gs_cpuBk and "Lucania Chess Computer" or (gameState_playingWhite and "Player 2" or "Player 1")) .. "\"]\n"
+            
+            local result = nil
+            if (gs_matchOvr) then
+                result = gs_matchOvr.result
+                if result == "white" then
+                    result = "1-0"
+                elseif result == "black" then
+                    result = "0-1"
+                else
+                    result = "1/2-1/2"
+                end
+                pgn = pgn .. "[Result \"" .. result .. "\"]\n"
+            else 
+                pgn = pgn .. "[Result \"*\"]\n"
+            end
+
+            if (gs_is960) then
+                pgn = pgn .. "[Variant \"Chess960\"]\n"
+            end
+            if (gs_curGmPos.visitedPositions[1] ~= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") then
+                pgn = pgn .. "[FEN \"" .. gs_curGmPos.visitedPositions[1] .. "\"]\n[SetUp \"1\"]\n" 
+            end
+
+            pgn = pgn .. "\n"
+            for i = 1, #gs_mvsNtn, 2 do
                 local number = flr((i+1)/2)
-                pgn = pgn .. number .."." .. gameState_boardControl_movesNotation[i] .. " " .. ((#gameState_boardControl_movesNotation >= i+1) and (gameState_boardControl_movesNotation[i+1] .. " ") or "")
+                pgn = pgn .. number .."." .. gs_mvsNtn[i] .. " " .. ((#gs_mvsNtn >= i+1) and (gs_mvsNtn[i+1] .. " ") or "")
+            end
+            if result then
+                pgn = pgn .. " " .. result
             end
             printh(pgn, "@clip")
 
-        elseif (gameState_menuControl_cursor == 4) then
-            gameState_currentScreen = "menu"
-            gameState_menuControl_cursor = 1
-            gameState_menuControl_menuState = {
+        elseif (gs_mnCsr == 4) then
+            -- Copy FEN
+            local fen = getFen(gs_curGmPos)
+            printh(fen, "@clip")
+
+        elseif (gs_mnCsr == 5) then
+            gs_scrn = "menu"
+            gs_mnCsr = 1
+            gs_mnSte = {
                 Variant = 1,
                 versus = 1,
                 Color = 1
@@ -1511,10 +1656,10 @@ function handleMatchMenuControl()
 
     if (btnp(2)) then
         sfx(2)
-        gameState_menuControl_cursor = (gameState_menuControl_cursor - 2) % 4 + 1
+        gs_mnCsr = (gs_mnCsr - 2) % 5 + 1
     elseif (btnp(3)) then
         sfx(2)
-        gameState_menuControl_cursor = (gameState_menuControl_cursor) % 4 + 1
+        gs_mnCsr = (gs_mnCsr) % 5 + 1
     end
 end
 -- src/utils.lua
@@ -1559,10 +1704,10 @@ function getPositionId(position)
     end
     s = s ..
         (position.whiteTurn and "w" or "b") ..
-        (position.whiteCastleKingside and "K" or "") ..
-        (position.whiteCastleQueenside and "Q" or "") ..
-        (position.blackCastleKingside and "k" or "") ..
-        (position.blackCastleQueenside and "q" or "")
+        (position.wtCslH and "K" or "") ..
+        (position.wtCslA and "Q" or "") ..
+        (position.bkCslH and "k" or "") ..
+        (position.bkCslA and "q" or "")
     return s
 end
 
@@ -1601,10 +1746,10 @@ function getPositionHash(position)
         hash = bxor(hash, zobrist["side"])
     end
 
-    if position.whiteCastleKingside   then hash = bxor(hash, zobrist["cK"]) end
-    if position.whiteCastleQueenside  then hash = bxor(hash, zobrist["cQ"]) end
-    if position.blackCastleKingside   then hash = bxor(hash, zobrist["ck"]) end
-    if position.blackCastleQueenside  then hash = bxor(hash, zobrist["cq"]) end
+    if position.wtCslH   then hash = bxor(hash, zobrist["cK"]) end
+    if position.wtCslA  then hash = bxor(hash, zobrist["cQ"]) end
+    if position.bkCslH   then hash = bxor(hash, zobrist["ck"]) end
+    if position.bkCslA  then hash = bxor(hash, zobrist["cq"]) end
 
     return hash
 end
@@ -1654,6 +1799,57 @@ function deep_copy(t)
     return copy
 end
 
+function getFen(position)
+    local fen = ""
+    for rank=8,1,-1 do
+        local emptyCount = 0
+        for file=1,8 do
+            local sqIdx = boardIndex(vector(file, rank))
+            local piece = position.board[sqIdx]
+            if piece == "." then
+                emptyCount += 1
+            else
+                if emptyCount > 0 then
+                    fen = fen .. emptyCount
+                    emptyCount = 0
+                end
+                fen = fen .. piece
+            end
+        end
+        if emptyCount > 0 then
+            fen = fen .. emptyCount
+        end
+        if rank > 1 then
+            fen = fen .. "/"
+        end
+    end
+
+    fen = fen .. " " .. (position.whiteTurn and "w" or "b") .. " "
+
+    local castling = ""
+    if position.wtCslH then castling ..= position.whiteOrigHRookPosition == 29 and "K" or to_upper(getFile(position.whiteOrigHRookPosition)) end
+    if position.wtCslA then castling ..= position.whiteOrigARookPosition == 22 and "Q" or to_upper(getFile(position.whiteOrigARookPosition))  end
+    if position.bkCslH then castling ..= position.blackOrigHRookPosition == 99 and "k" or getFile(position.blackOrigHRookPosition) end
+    if position.bkCslA then castling ..= position.blackOrigARookPosition == 92 and "q" or getFile(position.blackOrigARookPosition) end
+    if castling == "" then castling = "-" end
+    fen ..= castling .. " "
+
+    if position.enPassant then
+        local epSquare = boardIndexToSquare(position.enPassant)
+        fen ..= chr(96 + epSquare.x) .. tostring(epSquare.y)
+    else
+        fen ..= "-"
+    end
+
+    fen ..= " " .. position.movesSinceLastCapture .. " " .. flr(#position.visitedPositions / 2 + 1)
+
+    return fen
+end
+
+function getFile(idx)
+    return chr(95 + (idx % 10))
+end
+
 function getMoveNotation(position, from, to)
     local piece = position.board[boardIndex(from)]
     local targetPiece = position.board[boardIndex(to)]
@@ -1684,7 +1880,7 @@ function getMoveNotation(position, from, to)
         notation = notation .. " e.p."
     end
 
-    -- ambiguous?
+    -- ambig?
     local clarification = ""
     for i, p in pairs(position.board) do
         if p == piece and i ~= boardIndex(from) then
@@ -1715,9 +1911,9 @@ function getMoveNotation(position, from, to)
     end
 
     -- Check/Mate
-    if isMate(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn) then
+    if isMate(gs_curGmPos, gs_curGmPos.whiteTurn) then
         notation = notation .. "#"
-    elseif  isCheck(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn) then
+    elseif  isCheck(gs_curGmPos, gs_curGmPos.whiteTurn) then
         notation = notation .. "+"
     end
 

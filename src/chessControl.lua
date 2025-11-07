@@ -1,11 +1,8 @@
 
 
 function handleChessControls()
-    if lucania_coroutine  then
-        coresume(lucania_coroutine)
-    end
 
-    if (gameState_boardControl_cursorActive) then
+    if (gs_csrActv) then
         local moveCursor
         if btnp(0) then
             moveCursor = gameState_playingWhite and vector(-2, -1) or vector(0, -1)
@@ -19,37 +16,37 @@ function handleChessControls()
 
         if moveCursor then
             sfx(2);
-            gameState_boardControl_cursor = vector((gameState_boardControl_cursor.x + moveCursor.x )% 8 + 1, (gameState_boardControl_cursor.y + moveCursor.y )% 8 + 1)
+            gs_csr = vector((gs_csr.x + moveCursor.x )% 8 + 1, (gs_csr.y + moveCursor.y )% 8 + 1)
         end
 
         if btnp(5) then
-            local board = gameState_currentGamePosition.board
-            local cursorIndex = boardIndex(gameState_boardControl_cursor)
-            local piece = board[cursorIndex]
+            local board = gs_curGmPos.board
+            local csrI = boardIndex(gs_csr)
+            local pc = board[csrI]
 
-            if not gameState_boardControl_pieceLifted then
-                if piece ~= "." and (isWhitePiece(piece) == gameState_currentGamePosition.whiteTurn) then
+            if not gs_pcLift then
+                if pc ~= "." and (isWhitePiece(pc) == gs_curGmPos.whiteTurn) then
                     sfx(3);
-                    gameState_boardControl_currentPieceLegalMoves = getPieceLegalMoves(gameState_currentGamePosition, gameState_boardControl_cursor)
-                    gameState_boardControl_pieceLifted = gameState_boardControl_cursor
+                    gs_curPcLegMvs = getPieceLegalMoves(gs_curGmPos, gs_csr)
+                    gs_pcLift = gs_csr
                 end
             else
-                if vectorcmp(gameState_boardControl_cursor, gameState_boardControl_pieceLifted) then
-                    gameState_boardControl_pieceLifted = nil
-                    gameState_boardControl_currentPieceLegalMoves = {}
-                elseif isSameColorPiece(board[cursorIndex], board[boardIndex(gameState_boardControl_pieceLifted)]) then
-                    sfx(3);
-                    gameState_boardControl_currentPieceLegalMoves = getPieceLegalMoves(gameState_currentGamePosition, gameState_boardControl_cursor)
-                    gameState_boardControl_pieceLifted = gameState_boardControl_cursor
-                elseif contains(gameState_boardControl_currentPieceLegalMoves, cursorIndex) then
-                    gameState_boardControl_cursorActive = false
-                    gameState_boardControl_lastCursorPos[gameState_currentGamePosition.whiteTurn and "white" or "black"] = gameState_boardControl_cursor;
-                    gameState_boardControl_pieceMoving = {from = gameState_boardControl_pieceLifted, to = gameState_boardControl_cursor}
-                    gameState_boardControl_currentPieceLegalMoves = {}
-                    if board[cursorIndex] ~= "." then
-                        gameState_boardControl_pieceCaptured = gameState_boardControl_cursor
+                if contains(gs_curPcLegMvs, csrI) then
+                    gs_csrActv = false
+                    gs_lstCsrPos[gs_curGmPos.whiteTurn and "white" or "black"] = gs_csr;
+                    gs_pcMvng = {from = gs_pcLift, to = gs_csr}
+                    gs_curPcLegMvs = {}
+                    if board[csrI] ~= "." and (isWhitePiece(board[csrI]) ~= gs_curGmPos.whiteTurn) then
+                        gs_pcCptd = gs_csr
                     end
-                    gameState_boardControl_pieceLifted = nil
+                    gs_pcLift = nil
+                elseif vectorcmp(gs_csr, gs_pcLift) then
+                    gs_pcLift = nil
+                    gs_curPcLegMvs = {}
+                elseif isSameColorPiece(board[csrI], board[boardIndex(gs_pcLift)]) then
+                    sfx(3);
+                    gs_curPcLegMvs = getPieceLegalMoves(gs_curGmPos, gs_csr)
+                    gs_pcLift = gs_csr
                 end
             end
         end
@@ -57,9 +54,9 @@ function handleChessControls()
 
     if (btnp(4)) then
         sfx(0)
-        gameState_currentScreen = "matchMenu"
-        gameState_menuControl_cursor = 1
-        gameState_menuControl_menuState = {}
+        gs_scrn = "matchMenu"
+        gs_mnCsr = 1
+        gs_mnSte = {}
     end
 
 
@@ -68,47 +65,47 @@ end
 function on_moveAnimationFinished()
     sfx(4);
 
-    gameState_moveAnimationFinished = true
-    makeMove(gameState_currentGamePosition, 
-        boardIndex(gameState_boardControl_pieceMoving.from), 
-        boardIndex(gameState_boardControl_pieceMoving.to))
+    gs_mvAnimFin = true
+    makeMove(gs_curGmPos, 
+        boardIndex(gs_pcMvng.from), 
+        boardIndex(gs_pcMvng.to))
 
-    if (isMate(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn)) then
-        gameState_matchOver = {
+    if (isMate(gs_curGmPos, gs_curGmPos.whiteTurn)) then
+        gs_matchOvr = {
             reason = "mate",
-            result = gameState_currentGamePosition.whiteTurn and "black" or "white"
+            result = gs_curGmPos.whiteTurn and "black" or "white"
         }
-    elseif (isStalemate(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn)) then
-        gameState_matchOver = {
+    elseif (isStalemate(gs_curGmPos, gs_curGmPos.whiteTurn)) then
+        gs_matchOvr = {
             reason = "stale",
             result = "draw"
         }
     end
 
-    gameState_boardControl_movesNotation[#gameState_boardControl_movesNotation + 1] = getMoveNotation(gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory] or gameState_startPosition, gameState_boardControl_pieceMoving.from, gameState_boardControl_pieceMoving.to)
-    if (isCheck(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn)) then
+    gs_mvsNtn[#gs_mvsNtn + 1] = getMoveNotation(gs_posHtr[#gs_posHtr] or gameState_startPosition, gs_pcMvng.from, gs_pcMvng.to)
+    if (isCheck(gs_curGmPos, gs_curGmPos.whiteTurn)) then
         sfx(5);
     end
-    gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory + 1] = deep_copy(gameState_currentGamePosition)
-    gameState_boardControl_pieceMoving = nil
-    gameState_boardControl_pieceCaptured = nil
+    gs_posHtr[#gs_posHtr + 1] = deep_copy(gs_curGmPos)
+    gs_pcMvng = nil
+    gs_pcCptd = nil
 end
 
 function processMoveAnimationFinished()
-    if gameState_moveAnimationFinished then
-        gameState_moveAnimationFinished = false
+    if gs_mvAnimFin then
+        gs_mvAnimFin = false
     
-        if gameState_matchOver == nil and (gameState_currentGamePosition.whiteTurn and gameState_computerControlsWhite) or (not gameState_currentGamePosition.whiteTurn and gameState_computerControlsBlack) then
+        if gs_matchOvr == nil and (gs_curGmPos.whiteTurn and gs_cpuWt) or (not gs_curGmPos.whiteTurn and gs_cpuBk) then
             lucania_startSecond = stat(85)
             lucania_coroutine = cocreate(function()
-                move, score = lucania_search(gameState_currentGamePosition, gameState_currentGamePosition.whiteTurn)
+                move, score = lucania_search(gs_curGmPos, gs_curGmPos.whiteTurn)
                 move_from = boardIndexToSquare(move.from)
                 move_to = boardIndexToSquare(move.to)
-                gameState_boardControl_pieceMoving = {from = move_from, to = move_to}
+                gs_pcMvng = {from = move_from, to = move_to}
             end)
 
-        elseif gameState_matchOver then
-            gameState_boardControl_cursorActive = false
+        elseif gs_matchOvr then
+            gs_csrActv = false
 
             -- Delay game over splash
             add(async_to_run, cocreate(function()
@@ -116,13 +113,13 @@ function processMoveAnimationFinished()
                     yield()
                 end
                 music(0)
-                gameState_currentScreen = "matchMenu"
-                gameState_menuControl_cursor = 1
+                gs_scrn = "matchMenu"
+                gs_mnCsr = 1
             end))
 
         else
-            gameState_boardControl_cursorActive = true
-            gameState_boardControl_cursor = gameState_boardControl_lastCursorPos[gameState_currentGamePosition.whiteTurn and "white" or "black"] or vector(4, 4);
+            gs_csrActv = true
+            gs_csr = gs_lstCsrPos[gs_curGmPos.whiteTurn and "white" or "black"] or vector(4, 4);
         end
     end
 
@@ -132,44 +129,44 @@ function handleViewNotationControl()
 
     if (btnp(2)) then
         sfx(2)
-        gameState_menuControl_cursor = max(1, gameState_menuControl_cursor - 1)
-        gameState_currentGamePosition = gameState_boardControl_positionsHistory[gameState_menuControl_cursor]
+        gs_mnCsr = max(1, gs_mnCsr - 1)
+        gs_curGmPos = gs_posHtr[gs_mnCsr]
     elseif (btnp(3)) then
         sfx(2)
-        gameState_menuControl_cursor = min(gameState_menuControl_cursor + 1, #gameState_boardControl_positionsHistory)
-        gameState_currentGamePosition = gameState_boardControl_positionsHistory[gameState_menuControl_cursor]
+        gs_mnCsr = min(gs_mnCsr + 1, #gs_posHtr)
+        gs_curGmPos = gs_posHtr[gs_mnCsr]
     elseif (btnp(4)) then
         sfx(1)
-        gameState_currentGamePosition = deep_copy(gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory])
-        gameState_currentScreen = "chess"
-        gameState_boardControl_cursorActive = true
+        gs_curGmPos = deep_copy(gs_posHtr[#gs_posHtr])
+        gs_scrn = "chess"
+        gs_csrActv = true
 
         -- Delay - avoid freez in menu
         add(async_to_run, cocreate(function()
             for i=0,3 do
                 yield()
             end
-            gameState_moveAnimationFinished = true
+            gs_mvAnimFin = true
         end))
     elseif (btnp(5)) then
         sfx(1)
-        while #gameState_boardControl_movesNotation > gameState_menuControl_cursor do
-            del(gameState_boardControl_movesNotation, gameState_boardControl_movesNotation[#gameState_boardControl_movesNotation])
+        while #gs_mvsNtn > gs_mnCsr do
+            del(gs_mvsNtn, gs_mvsNtn[#gs_mvsNtn])
         end
-        while #gameState_boardControl_positionsHistory > gameState_menuControl_cursor do
-            del(gameState_boardControl_positionsHistory, gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory])
+        while #gs_posHtr > gs_mnCsr do
+            del(gs_posHtr, gs_posHtr[#gs_posHtr])
         end
-        gameState_currentGamePosition = deep_copy(gameState_boardControl_positionsHistory[#gameState_boardControl_positionsHistory])
-        gameState_boardControl_cursorActive = not ((gameState_currentGamePosition.whiteTurn and gameState_computerControlsWhite) or (not gameState_currentGamePosition.whiteTurn and gameState_computerControlsBlack));
-        gameState_currentScreen = "chess";
-        gameState_matchOver = nil
+        gs_curGmPos = deep_copy(gs_posHtr[#gs_posHtr])
+        gs_csrActv = not ((gs_curGmPos.whiteTurn and gs_cpuWt) or (not gs_curGmPos.whiteTurn and gs_cpuBk));
+        gs_scrn = "chess";
+        gs_matchOvr = nil
 
         -- Delay - avoid freez in menu
         add(async_to_run, cocreate(function()
             for i=0,3 do
                 yield()
             end
-            gameState_moveAnimationFinished = true
+            gs_mvAnimFin = true
         end))
     end
 

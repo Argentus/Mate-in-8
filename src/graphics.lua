@@ -58,7 +58,7 @@ animations_movePiece = nil
 animations_capturePiece = {}
 
 function animateCapturePiece(index)
-    local piece = gameState_currentGamePosition.board[index]
+    local piece = gs_curGmPos.board[index]
     local pieceSprite = PIECES_SPRITES[piece]
 
     -- Prepare sandbox
@@ -158,11 +158,11 @@ end
 function processAnimations()
 
     -- Anim trig logic
-    local pieceLifted = gameState_boardControl_cursorActive and boardIndex(gameState_boardControl_pieceLifted or gameState_boardControl_cursor)
-    local board = gameState_currentGamePosition.board
-    local whiteTurn = gameState_currentGamePosition.whiteTurn
+    local pieceLifted = gs_csrActv and boardIndex(gs_pcLift or gs_csr)
+    local board = gs_curGmPos.board
+    local whiteTurn = gs_curGmPos.whiteTurn
 
-    if not pieceLifted or not gameState_boardControl_cursorActive or (board[pieceLifted] >= "a" and whiteTurn) or
+    if not pieceLifted or not gs_csrActv or (board[pieceLifted] >= "a" and whiteTurn) or
         (board[pieceLifted] < "a" and not whiteTurn) then
             -- No lift opponent pieces
             pieceLifted = nil
@@ -177,13 +177,13 @@ function processAnimations()
         animateReleaseAllPieces()
     end
 
-    if gameState_boardControl_pieceMoving and not animations_movePiece then
-        animateMovePiece(gameState_boardControl_pieceMoving.from, gameState_boardControl_pieceMoving.to)
+    if gs_pcMvng and not animations_movePiece then
+        animateMovePiece(gs_pcMvng.from, gs_pcMvng.to)
     end
-    if gameState_boardControl_pieceCaptured and 
-        ((not animations_capturePiece[boardIndex(gameState_boardControl_pieceCaptured)]) or 
-         (animations_capturePiece[boardIndex(gameState_boardControl_pieceCaptured)].age > MOVE_ANIM_DURATION)) then
-        animateCapturePiece(boardIndex(gameState_boardControl_pieceCaptured))
+    if gs_pcCptd and 
+        ((not animations_capturePiece[boardIndex(gs_pcCptd)]) or 
+         (animations_capturePiece[boardIndex(gs_pcCptd)].age > MOVE_ANIM_DURATION)) then
+        animateCapturePiece(boardIndex(gs_pcCptd))
     end
 
     -- Anim progress update
@@ -244,7 +244,7 @@ end
 
 function drawChessboard()
 
-    local board = gameState_currentGamePosition.board
+    local board = gs_curGmPos.board
 
     -- board frame
     line(6,16,88,16, 0)
@@ -269,11 +269,11 @@ function drawChessboard()
             local file = gameState_playingWhite and ix or (9 - ix)
             local rank = gameState_playingWhite and (9 - iy) or iy
             sspr(56, blackSquare and 0 or 16, 10, 10, ix * 10 -3, iy * 10 + 7)
-            if gameState_boardControl_cursorActive and gameState_boardControl_cursor.x == file and gameState_boardControl_cursor.y == rank then
-                line(ix * 10 -3, iy * 10 + 7, ix * 10 + 6, iy * 10 + 7, gameState_currentGamePosition.whiteTurn and 9 or 8)
-                line(ix * 10 -3, iy * 10 + 7, ix * 10 - 3, iy * 10 + 16, gameState_currentGamePosition.whiteTurn and 9 or 8)
-                line(ix * 10 -3, iy * 10 + 16, ix * 10 + 6, iy * 10 + 16, gameState_currentGamePosition.whiteTurn and 9 or 8)
-                line(ix * 10 + 6, iy * 10 + 7, ix * 10 + 6, iy * 10 + 16, gameState_currentGamePosition.whiteTurn and 9 or 8)
+            if gs_csrActv and gs_csr.x == file and gs_csr.y == rank then
+                line(ix * 10 -3, iy * 10 + 7, ix * 10 + 6, iy * 10 + 7, gs_curGmPos.whiteTurn and 9 or 8)
+                line(ix * 10 -3, iy * 10 + 7, ix * 10 - 3, iy * 10 + 16, gs_curGmPos.whiteTurn and 9 or 8)
+                line(ix * 10 -3, iy * 10 + 16, ix * 10 + 6, iy * 10 + 16, gs_curGmPos.whiteTurn and 9 or 8)
+                line(ix * 10 + 6, iy * 10 + 7, ix * 10 + 6, iy * 10 + 16, gs_curGmPos.whiteTurn and 9 or 8)
             end
 
             blackSquare = not blackSquare
@@ -304,19 +304,19 @@ function drawChessboard()
             end
 
             if piece ~= "." then
-                if animations_movePiece and gameState_boardControl_pieceMoving and gameState_boardControl_pieceMoving.from.x == file and gameState_boardControl_pieceMoving.from.y == rank then
+                if animations_movePiece and gs_pcMvng and gs_pcMvng.from.x == file and gs_pcMvng.from.y == rank then
                     drawPiece(piece, animations_movePiece.x, animations_movePiece.y, "move")
                 else
                     local dy = animations_liftPiece[bIndex] and animations_liftPiece[bIndex].dy or (animations_releasePiece[bIndex] and animations_releasePiece[bIndex].dy or 0)
-                    if not (gameState_boardControl_pieceCaptured and gameState_boardControl_pieceCaptured.x == file and gameState_boardControl_pieceCaptured.y == rank) then
+                    if not (gs_pcCptd and gs_pcCptd.x == file and gs_pcCptd.y == rank) then
                         drawPiece(piece, ix * 10 - 2, iy * 10 + 16 + dy)
                     end
                 end
             end
 
-            if contains(gameState_boardControl_currentPieceLegalMoves, bIndex) then
-                line(ix * 10, iy * 10 + 10 , ix * 10 + 3, iy * 10 + 13, gameState_currentGamePosition.whiteTurn and 9 or 8)
-                line(ix * 10, iy * 10 + 13 , ix * 10 + 3, iy * 10 + 10, gameState_currentGamePosition.whiteTurn and 9 or 8)
+            if contains(gs_curPcLegMvs, bIndex) then
+                line(ix * 10, iy * 10 + 10 , ix * 10 + 3, iy * 10 + 13, gs_curGmPos.whiteTurn and 9 or 8)
+                line(ix * 10, iy * 10 + 13 , ix * 10 + 3, iy * 10 + 10, gs_curGmPos.whiteTurn and 9 or 8)
             end
             blackSquare = not blackSquare
         end
@@ -332,11 +332,11 @@ end
 function drawChessboardUI(viewNotation)
     viewNotation = viewNotation or nil
     -- Captd pieces
-    for i, piece in pairs(gameState_currentGamePosition.capturedPieces[gameState_playingWhite and "black" or "white"]) do
+    for i, piece in pairs(gs_curGmPos.capdPcs[gameState_playingWhite and "black" or "white"]) do
         local pieceSprite = PIECES_SPRITES[piece]
         sspr(pieceSprite.x, pieceSprite.y, 8, pieceSprite.h, 1 + i * 5, 14 - pieceSprite.h)
     end
-    for i, piece in pairs(gameState_currentGamePosition.capturedPieces[gameState_playingWhite and "white" or "black"]) do
+    for i, piece in pairs(gs_curGmPos.capdPcs[gameState_playingWhite and "white" or "black"]) do
         local pieceSprite = PIECES_SPRITES[piece]
         sspr(pieceSprite.x, pieceSprite.y, 8, pieceSprite.h, 1 + i * 5, 106 - pieceSprite.h)
     end
@@ -344,9 +344,9 @@ function drawChessboardUI(viewNotation)
     -- Notation
     local firstDisplayedMoveIndex = 1
     if (viewNotation) then
-        firstDisplayedMoveIndex = max(0, min(gameState_menuControl_cursor - 6, #gameState_boardControl_movesNotation - 12))
+        firstDisplayedMoveIndex = max(0, min(gs_mnCsr - 6, #gs_mvsNtn - 12))
     else
-        firstDisplayedMoveIndex = max(#gameState_boardControl_movesNotation - 12, 0)
+        firstDisplayedMoveIndex = max(#gs_mvsNtn - 12, 0)
     end
     
     if firstDisplayedMoveIndex > 0 then
@@ -361,29 +361,29 @@ function drawChessboardUI(viewNotation)
         spr(41, i, 99)
     end
 
-    if #gameState_boardControl_movesNotation == 0 then
+    if #gs_mvsNtn == 0 then
         print_custom("1.", 95, 16, 8)
 
 
     else
-        for i = 1, min(#gameState_boardControl_movesNotation, 12) do
+        for i = 1, min(#gs_mvsNtn, 12) do
             local moveIndex = firstDisplayedMoveIndex + i
             if moveIndex % 2 == 1 then
                 print_custom( "" .. (flr(moveIndex / 2) + 1) .. ".", 95, 10 + i * 6, 8)
-                if viewNotation and moveIndex == gameState_menuControl_cursor then
+                if viewNotation and moveIndex == gs_mnCsr then
                     print_custom( "" .. (flr(moveIndex / 2) + 1) .. ".", 96, 10 + i * 6, 7)
                 end
             else
                 print_custom("...", 95, 10 + i * 6, 0)
-                if viewNotation and moveIndex == gameState_menuControl_cursor then
+                if viewNotation and moveIndex == gs_mnCsr then
                     print_custom("...", 96, 10 + i * 6, 7)
                 end
             end
 
-            if viewNotation and moveIndex == gameState_menuControl_cursor then
-                print_custom(gameState_boardControl_movesNotation[moveIndex], 106, 10 + i * 6, 9)
+            if viewNotation and moveIndex == gs_mnCsr then
+                print_custom(gs_mvsNtn[moveIndex], 106, 10 + i * 6, 9)
             end
-            print_custom(gameState_boardControl_movesNotation[moveIndex], 107, 10 + i * 6, 0)
+            print_custom(gs_mvsNtn[moveIndex], 107, 10 + i * 6, 0)
         end
     end
 

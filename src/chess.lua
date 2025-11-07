@@ -12,315 +12,420 @@ PIECE_MOVES = {
     b = split("11, -11, 9, -9"),
     Q = split("1, -1, 10, -10, 11, -11, 9, -9"),
     q = split("1, -1, 10, -10, 11, -11, 9, -9"),
-    K = split("1, -1, 10, -10, 11, -11, 9, -9, 2, -2"),
-    k = split("1, -1, 10, -10, 11, -11, 9, -9, 2, -2")
+    K = split("1, -1, 10, -10, 11, -11, 9, -9"),
+    k = split("1, -1, 10, -10, 11, -11, 9, -9")
 }
 
+function get960StartingPosition()
+    local pos = getStartingPosition()
+    local options = {1,3,5,7}
+    local b1 = rnd(options)
+    local b2 = rnd(options) + 1
+
+    options = split"1,2,3,4,5,6,7,8"
+    del(options, b1)
+    del(options, b2)
+    local q = rnd(options)
+    del(options, q)
+    local n1 = rnd(options)
+    del(options, n1)
+    local n2 = rnd(options) 
+    del(options, n2)
+
+    local r1 = options[1]
+    local r2 = options[3]
+    local k = options[2]
+
+    pos.board[21 + b1] = "B"
+    pos.board[21 + b2] = "B"
+    pos.board[21 + q] = "Q"
+    pos.board[21 + n1] = "N"
+    pos.board[21 + n2] = "N"
+    pos.board[21 + r1] = "R"
+    pos.board[21 + r2] = "R"
+    pos.board[21 + k] = "K"
+    pos.whiteOrigARookPosition = 21 + r1
+    pos.whiteOrigHRookPosition = 21 + r2
+
+    pos.board[91 + b1] = "b"
+    pos.board[91 + b2] = "b"
+    pos.board[91 + q] = "q"
+    pos.board[91 + n1] = "n"
+    pos.board[91 + n2] = "n"
+    pos.board[91 + r1] = "r"
+    pos.board[91 + r2] = "r"
+    pos.board[91 + k] = "k"
+    pos.blackOrigARookPosition = 91 + r1
+    pos.blackOrigHRookPosition = 91 + r2
+
+    pos.hash = getPositionHash(pos)
+    pos.visitedPositions[1] = getFen(pos)
+    return pos
+end
+
 function getStartingPosition()
-    local position = {
+    local pos = {
         board = split(FRESH_BOARD),
         whiteTurn = true,
         enPassant = nil,
-        capturedPieces = {
+        capdPcs = {
             white = {},
             black = {}
         },
-        whiteCastleKingside = true,
-        whiteCastleQueenside = true,
-        blackCastleKingside = true,
-        blackCastleQueenside = true,
+        wtCslH = true,
+        wtCslA = true,
+        whiteOrigHRookPosition = 29,
+        whiteOrigARookPosition = 22,
+        bkCslH = true,
+        bkCslA = true,
+        blackOrigHRookPosition = 99,
+        blackOrigARookPosition = 92,
         visitedPositions = {},
         movesSinceLastCapture = 0
     }
-    position.hash = getPositionHash(position)
-    return position
+    pos.hash = getPositionHash(pos)
+    pos.visitedPositions[1] = getFen(pos)
+    return pos
 end
 
 -- No legal check, returns undo changes
-function makeMove(position, from, to)
+function makeMove(pos, from, to)
 
-    local board = position.board
-    local piece = board[from]
+    local board = pos.board
+    local pc = board[from]
     local capturedPiece = board[to]
 
     local undoMove = {
         boardChanges = {},
         capture = nil,
-        movesSinceLastCapture = position.movesSinceLastCapture,
-        enPassant = position.enPassant,
-        whiteCastleKingside = position.whiteCastleKingside,
-        whiteCastleQueenside = position.whiteCastleQueenside,
-        blackCastleKingside = position.blackCastleKingside,
-        blackCastleQueenside = position.blackCastleQueenside,
+        movesSinceLastCapture = pos.movesSinceLastCapture,
+        enPassant = pos.enPassant,
+        wtCslH = pos.wtCslH,
+        wtCslA = pos.wtCslA,
+        bkCslH = pos.bkCslH,
+        bkCslA = pos.bkCslA,
     }
-    undoMove.boardChanges[from] = piece
+    undoMove.boardChanges[from] = pc
     undoMove.boardChanges[to] = capturedPiece
 
     -- EP
-    if (piece == "p" or piece == "P") and position.enPassant and position.enPassant == to then
-        local enPassantPawn = to + (position.whiteTurn and -10 or 10)
-        capturedPiece = board[enPassantPawn]
-        board[enPassantPawn] = "."
-        undoMove.boardChanges[enPassantPawn] = capturedPiece
+    if (pc == "p" or pc == "P") and pos.enPassant and pos.enPassant == to then
+        local epPawn = to + (pos.whiteTurn and -10 or 10)
+        capturedPiece = board[epPawn]
+        board[epPawn] = "."
+        undoMove.boardChanges[epPawn] = capturedPiece
     end
 
     board[from] = "."
-    board[to] = piece
+    board[to] = pc
 
-    position.board = board
+    pos.board = board
 
-    if capturedPiece ~= "." then
-        position.capturedPieces[position.whiteTurn and "white" or "black"][#position.capturedPieces[position.whiteTurn and "white" or "black"] + 1] = capturedPiece
-        position.movesSinceLastCapture = 0
+    if (capturedPiece ~= ".") and (isWhitePiece(capturedPiece) ~= isWhitePiece(pc))
+    then
+        pos.capdPcs[pos.whiteTurn and "white" or "black"][#pos.capdPcs[pos.whiteTurn and "white" or "black"] + 1] = capturedPiece
+        pos.movesSinceLastCapture = 0
         undoMove.capture = capturedPiece
     else
-        position.movesSinceLastCapture = position.movesSinceLastCapture + 1
+        pos.movesSinceLastCapture = pos.movesSinceLastCapture + 1
     end
 
     -- Mark EP sq
-    if (piece == "p" or piece == "P") and (abs(from - to) == 20)
+    if (pc == "p" or pc == "P") and (abs(from - to) == 20)
     then
-        position.enPassant = to + (position.whiteTurn and -10 or 10)
+        pos.enPassant = to + (pos.whiteTurn and -10 or 10)
     else
-        position.enPassant = nil
+        pos.enPassant = nil
     end
 
-    -- Castling
-    if piece == "K" then
-        if to == 28 and position.whiteCastleKingside then
-            -- W K-side
-            board[29] = "."
+    -- Castl
+    if pc == "K" then
+        if to == 28 and pos.wtCslH then
+            board[pos.whiteOrigHRookPosition] = (to == pos.whiteOrigHRookPosition) and "K" or "."
             board[27] = "R"
-            undoMove.boardChanges[29] = "R"
-            undoMove.boardChanges[27] = "."
-        elseif to == 24 and position.whiteCastleQueenside then
-            -- W Q-side
-            board[22] = "."
+            undoMove.boardChanges[pos.whiteOrigHRookPosition] = "R"
+            undoMove.boardChanges[27] = (from == 27) and "K" or "."
+        elseif to == 24 and pos.wtCslA then
+            board[pos.whiteOrigARookPosition] = (to == pos.whiteOrigARookPosition) and "K" or "."
             board[25] = "R"
-            undoMove.boardChanges[22] = "R"
-            undoMove.boardChanges[25] = "."
+            undoMove.boardChanges[pos.whiteOrigARookPosition] = "R"
+            undoMove.boardChanges[25] = (from == 25) and "K" or "."
         end
-    elseif piece == "k" then
-        if to == 98 and position.blackCastleKingside then
-            -- B K-side
-            board[99] = "."
+    elseif pc == "k" then
+        if to == 98 and pos.bkCslH then
+            board[pos.blackOrigHRookPosition] = (to == pos.blackOrigHRookPosition) and "k" or "."
             board[97] = "r"
-            undoMove.boardChanges[99] = "r"
-            undoMove.boardChanges[97] = "."
-        elseif to == 94 and position.blackCastleQueenside then
-            -- B Q-side
-            board[92] = "."
+            undoMove.boardChanges[pos.blackOrigHRookPosition] = "r"
+            undoMove.boardChanges[97] = (from == 97) and "k" or "."
+        elseif to == 94 and pos.bkCslA then
+            board[pos.blackOrigARookPosition] = (to == pos.blackOrigARookPosition) and "k" or "."
             board[95] = "r"
-            undoMove.boardChanges[92] = "r"
-            undoMove.boardChanges[95] = "."
+            undoMove.boardChanges[pos.blackOrigARookPosition] = "r"
+            undoMove.boardChanges[95] = (from == 95) and "k" or "."
         end
     end
 
     -- Castling rights
-    if piece == "K" then
-        position.whiteCastleKingside = false
-        position.whiteCastleQueenside = false
-    elseif piece == "k" then
-        position.blackCastleKingside = false
-        position.blackCastleQueenside = false
+    if pc == "K" then
+        pos.wtCslH = false
+        pos.wtCslA = false
+    elseif pc == "k" then
+        pos.bkCslH = false
+        pos.bkCslA = false
     end
 
-    if from == 29 or to == 29 then
-        position.whiteCastleKingside = false
-    elseif from == 22 or to == 22 then
-        position.whiteCastleQueenside = false
-    elseif from == 99 or to == 99 then
-        position.blackCastleKingside = false
-    elseif from == 92 or to == 92 then
-        position.blackCastleQueenside = false
+    if from == pos.whiteOrigHRookPosition or to == pos.whiteOrigHRookPosition then
+        pos.wtCslH = false
+    elseif from == pos.whiteOrigARookPosition or to == pos.whiteOrigARookPosition then
+        pos.wtCslA = false
+    elseif from == pos.blackOrigHRookPosition or to == pos.blackOrigHRookPosition then
+        pos.bkCslH = false
+    elseif from == pos.blackOrigARookPosition or to == pos.blackOrigARookPosition then
+        pos.bkCslA = false
     end
 
     -- Promotion
-    if (piece == "P" and to >= 92) then
+    if (pc == "P" and to >= 92) then
         board[to] = "Q"
-    elseif (piece == "p" and to <= 29) then
+    elseif (pc == "p" and to <= 29) then
         board[to] = "q"
     end
 
-    position.whiteTurn = not position.whiteTurn
-    position.visitedPositions[#position.visitedPositions + 1] = getPositionId(position)
+    pos.whiteTurn = not pos.whiteTurn
+    pos.visitedPositions[#pos.visitedPositions + 1] = getFen(pos)
 
     return undoMove
 end
 
-function undoMove(position, undoMove)
-    for index, piece in pairs(undoMove.boardChanges) do
-        position.board[index] = piece
+function undoMove(pos, undoMove)
+    for index, pc in pairs(undoMove.boardChanges) do
+        pos.board[index] = pc
     end
     if (undoMove.capture) then
-        position.capturedPieces[position.whiteTurn and "black" or "white"][#position.capturedPieces[position.whiteTurn and "black" or "white"]] = nil
+        pos.capdPcs[pos.whiteTurn and "black" or "white"][#pos.capdPcs[pos.whiteTurn and "black" or "white"]] = nil
     end
-    position.whiteTurn = not position.whiteTurn
-    position.visitedPositions[#position.visitedPositions] = nil
-    position.movesSinceLastCapture = undoMove.movesSinceLastCapture
-    position.enPassant = undoMove.enPassant
-    position.whiteCastleKingside = undoMove.whiteCastleKingside
-    position.whiteCastleQueenside = undoMove.whiteCastleQueenside
-    position.blackCastleKingside = undoMove.blackCastleKingside
-    position.blackCastleQueenside = undoMove.blackCastleQueenside
+    pos.whiteTurn = not pos.whiteTurn
+    pos.visitedPositions[#pos.visitedPositions] = nil
+    pos.movesSinceLastCapture = undoMove.movesSinceLastCapture
+    pos.enPassant = undoMove.enPassant
+    pos.wtCslH = undoMove.wtCslH
+    pos.wtCslA = undoMove.wtCslA
+    pos.bkCslH = undoMove.bkCslH
+    pos.bkCslA = undoMove.bkCslA
 end
 
-function getPieceLegalMoves(position, square, ignoreCheck)
+function getPieceLegalMoves(pos, sq, ignoreCheck)
     ignoreCheck = ignoreCheck or false
 
-    local board = position.board
-    local squareIndex = boardIndex(square)
+    local board = pos.board
+    local sqI = boardIndex(sq)
 
-    local piece = position.board[boardIndex(square)]
-    movements = PIECE_MOVES[piece]
-    local legalMoves = {}
-    local legalMovesCaptures = {}
-    local legalMovesChecks = {}
+    local pc = pos.board[boardIndex(sq)]
+    movements = PIECE_MOVES[pc]
+    local lgMvs = {}
+    local lgMvCaps = {}
+    local lgMvCx = {}
 
-    for _, movement in pairs(movements) do
-        local crawl = (to_lower(piece) == 'r' or to_lower(piece) == 'b' or to_lower(piece) == 'q') and 7 or 1
-        local capturesOrPromotes = false
+    for _, m in pairs(movements) do
+        local crawl = (to_lower(pc) == 'r' or to_lower(pc) == 'b' or to_lower(pc) == 'q') and 7 or 1
+        local capOrProm = false
 
         for i = 1, crawl do
-            local targetIndex = squareIndex + movement * i
-            local targetPiece = board[targetIndex]
-            if targetPiece == "x" or (targetPiece ~= "." and isBlackPiece(piece) == isBlackPiece(targetPiece)) then
+            local tgtIdx = sqI + m * i
+            local tgtPc = board[tgtIdx]
+            if tgtPc == "x" or (tgtPc ~= "." and isBlackPiece(pc) == isBlackPiece(tgtPc)) then
                 
-                goto continueNextMovement
+                goto cntNxMvt
             end
 
             -- P
-            if to_lower(piece) == "p" then
-                if abs(movement) == 20 then
+            if to_lower(pc) == "p" then
+                if abs(m) == 20 then
                     -- 2-step
-                    if (square.y ~= 2 and square.y ~= 7) or targetPiece ~= "." or board[squareIndex + movement/2] ~= "." then
-                        goto continueNextMovement
+                    if (sq.y ~= 2 and sq.y ~= 7) or tgtPc ~= "." or board[sqI + m/2] ~= "." then
+                        goto cntNxMvt
                     end
-                elseif abs(movement) == 10 then
+                elseif abs(m) == 10 then
                     -- 1-step
-                    if targetPiece ~= "." then
-                        goto continueNextMovement
+                    if tgtPc ~= "." then
+                        goto cntNxMvt
                     end
-                    capturesOrPromotes = (square.y == (isWhitePiece(piece) and 8 or 1)) and "Q"
+                    capOrProm = (sq.y == (isWhitePiece(pc) and 8 or 1)) and "Q"
                 else 
                     -- Takes
-                    if (targetPiece == "." and not (position.enPassant and (position.enPassant == targetIndex))) or (targetPiece ~= "." and (isBlackPiece(piece) == isBlackPiece(targetPiece))) then
+                    if (tgtPc == "." and not (pos.enPassant and (pos.enPassant == tgtIdx))) or (tgtPc ~= "." and (isBlackPiece(pc) == isBlackPiece(tgtPc))) then
                         -- No take
-                        goto continueNextMovement
+                        goto cntNxMvt
                     else
-                        capturesOrPromotes = (targetPiece ~= ".") and targetPiece or "P"
-                    end
-                end
-
-            -- K
-            elseif to_lower(piece) == "k" then
-                if movement == 2 then
-                    -- Kside cstl
-                    if  (isWhitePiece(piece) and not position.whiteCastleKingside) or 
-                        (isBlackPiece(piece) and not position.blackCastleKingside) or
-                        board[squareIndex + 1] ~= "." or 
-                        board[squareIndex + 2] ~= "." or
-                        -- Check
-                        (
-                            (not ignoreCheck) and (
-                                isSquareAttacked2(position, squareIndex, isWhitePiece(piece)) or
-                                isSquareAttacked2(position, squareIndex + 1, isWhitePiece(piece))
-                            )
-                        )
-                    then
-                        goto continueNextMovement
-                    end
-                elseif movement == -2 then
-                    -- Qside cstl
-                    if  (isWhitePiece(piece) and not position.whiteCastleQueenside) or 
-                        (isBlackPiece(piece) and not position.blackCastleQueenside) or
-                        board[squareIndex - 1] ~= "." or 
-                        board[squareIndex - 2] ~= "." or
-                        board[squareIndex - 3] ~= "." or
-                        -- Check
-                        (
-                            (not ignoreCheck) and (
-                                isSquareAttacked2(position, squareIndex, isWhitePiece(piece)) or
-                                isSquareAttacked2(position, squareIndex - 1, isWhitePiece(piece)) or 
-                                isSquareAttacked2(position, squareIndex - 2, isWhitePiece(piece))
-                            )
-                        )
-                    then
-                        goto continueNextMovement
+                        capOrProm = (tgtPc ~= ".") and tgtPc or "P"
                     end
                 end
             end
 
-            if targetPiece ~= "." then
-                if (isBlackPiece(piece) == isBlackPiece(targetPiece)) then
+            if tgtPc ~= "." then
+                if (isBlackPiece(pc) == isBlackPiece(tgtPc)) then
                     -- No take own
-                    goto continueNextMovement
+                    goto cntNxMvt
                 else
-                    capturesOrPromotes = to_upper(targetPiece)
+                    capOrProm = to_upper(tgtPc)
                 end
             end
 
             if (not ignoreCheck) then
-                local undo = makeMove(position, squareIndex, targetIndex)
-                if (not isCheck(position, isWhitePiece(piece))) then
-                    legalMoves[#legalMoves + 1] = targetIndex
-                    if (capturesOrPromotes) then
-                        legalMovesCaptures[targetIndex] = capturesOrPromotes
+                local undo = makeMove(pos, sqI, tgtIdx)
+                if (not isCheck(pos, isWhitePiece(pc))) then
+                    lgMvs[#lgMvs + 1] = tgtIdx
+                    if (capOrProm) then
+                        lgMvCaps[tgtIdx] = capOrProm
                     end
-                    if (isCheck(position, isBlackPiece(piece))) then
-                        legalMovesChecks[targetIndex] = true
+                    if (isCheck(pos, isBlackPiece(pc))) then
+                        lgMvCx[tgtIdx] = true
                     end
                 end
-                undoMove(position, undo)
+                undoMove(pos, undo)
             else
-                legalMoves[#legalMoves + 1] = targetIndex
-                if (capturesOrPromotes) then
-                    legalMovesCaptures[targetIndex] = capturesOrPromotes
+                lgMvs[#lgMvs + 1] = tgtIdx
+                if (capOrProm) then
+                    lgMvCaps[tgtIdx] = capOrProm
                 end
             end
 
-            if targetPiece ~= "." then
-                goto continueNextMovement
+            if tgtPc ~= "." then
+                goto cntNxMvt
             end
 
         end
 
-        ::continueNextMovement::
+        ::cntNxMvt::
     end
 
-    return legalMoves, legalMovesCaptures, legalMovesChecks
+    -- Castling - support 960
+    if to_lower(pc) == "k" then
+        if isWhitePiece(pc) then
+            -- White
+            if pos.wtCslH and not isSqAtk(pos, 28, isWhitePiece(pc)) then
+                -- king's route to final sq clear and no harm
+                local canDo = true
+                if sqI < 28 then
+                    for i = sqI + 1, 28 do
+                        if (board[i] ~= "." and board[i] ~= "R") or isSqAtk(pos, i, isWhitePiece(pc)) then
+                            canDo = false
+                            break
+                        end
+                    end
+                end
+                
+                if sqI ~= 27 and board[27] ~= "." then
+                    canDo = false
+                end
+
+
+                if canDo then
+                    lgMvs[#lgMvs + 1] = 28
+                end
+            end
+            if pos.wtCslA and not isSqAtk(pos, 24, isWhitePiece(pc)) then
+                local canDo = true
+                if sqI > 24 then
+                    for i = sqI - 1, 24, -1 do
+                        if (board[i] ~= "." and board[i] ~= "R") or isSqAtk(pos, i, isWhitePiece(pc)) then
+                            canDo = false
+                            break
+                        end
+                    end
+                elseif sqI < 24 then
+                    if board[24] ~= "." or isSqAtk(pos, 24, isWhitePiece(pc)) then
+                        canDo = false
+                    end
+                end
+
+                if sqI ~= 25 and board[25] ~= "." then
+                    canDo = false
+                end
+
+                if canDo then
+                    lgMvs[#lgMvs + 1] = 24
+                end
+            end
+        else
+            if pos.bkCslH and not isSqAtk(pos, 98, isWhitePiece(pc)) then
+                local canDo = true
+                if sqI < 98 then
+                    for i = sqI + 1, 98 do
+                        if (board[i] ~= "." and board[i] ~= "r") or isSqAtk(pos, sqI, isWhitePiece(pc)) then
+                            canDo = false
+                            break
+                        end
+                    end
+                end
+                
+                if sqI ~= 97 and board[97] ~= "." then
+                    canDo = false
+                end
+
+                if canDo then
+                    lgMvs[#lgMvs + 1] = 98
+                end
+            end
+            if pos.bkCslA and not isSqAtk(pos, 94, isWhitePiece(pc)) then
+                local canDo = true
+                if sqI > 94 then
+                    for i = sqI - 1, 94, -1 do
+                        if (board[i] ~= "." and board[i] ~= "r") or isSqAtk(pos, sqI, isWhitePiece(pc)) then
+                            canDo = false
+                            break
+                        end
+                    end
+                elseif sqI < 94 then
+                    if board[94] ~= "." or isSqAtk(pos, 94, isWhitePiece(pc)) then
+                        canDo = false
+                    end
+                end
+
+                if sqI ~= 95 and board[95] ~= "." then
+                    canDo = false
+                end
+
+                if canDo then
+                    lgMvs[#lgMvs + 1] = 94
+                end
+            end
+        end
+    end
+
+    return lgMvs, lgMvCaps, lgMvCx
 end
 
-function getAllLegalMoves(position, white, ignoreCheck)
-    local legalMoves = {}
+function getAllLegalMoves(pos, white, ignoreCheck)
+    local lgMvs = {}
     for i = 21, 100 do
-        local square = boardIndexToSquare(i)
-        local piece = position.board[i]
-        if (white and isWhitePiece(piece)) or (not white and isBlackPiece(piece)) then 
-            local moves, captures, checks = getPieceLegalMoves(position, square, ignoreCheck)
+        local sq = boardIndexToSquare(i)
+        local pc = pos.board[i]
+        if (white and isWhitePiece(pc)) or (not white and isBlackPiece(pc)) then 
+            local moves, captures, checks = getPieceLegalMoves(pos, sq, ignoreCheck)
             for _, move in pairs(moves) do
-                legalMoves[#legalMoves + 1] = {from = i, to = move, takes = captures[move], check = checks[move], piece = piece}
+                lgMvs[#lgMvs + 1] = {from = i, to = move, takes = captures[move], check = checks[move], pc = pc}
             end
         end
     end
-    return legalMoves
+    return lgMvs
 end
 
-function isSquareAttacked2(position, squareIndex, white)
-    local board = position.board
+function isSqAtk(pos, sqI, white)
+    local board = pos.board
 
     -- by P
-    local enemyPawnAttackDirection = white and 10 or -10    -- Actually the opposite, we are looking at the pawn, not pawn POV
+    local enemyPawnAttackDirection = white and 10 or -10
     local enemyPawn = white and "p" or "P"
 
-    if board[squareIndex + enemyPawnAttackDirection - 1] == enemyPawn or
-       board[squareIndex + enemyPawnAttackDirection + 1] == enemyPawn then
+    if board[sqI + enemyPawnAttackDirection - 1] == enemyPawn or
+       board[sqI + enemyPawnAttackDirection + 1] == enemyPawn then
         return true
     end
 
     -- by N
     for _,move in ipairs(PIECE_MOVES.N) do
-        local knightIndex = squareIndex + move
+        local knightIndex = sqI + move
         if board[knightIndex] == (white and "n" or "N") then
             return true
         end
@@ -329,13 +434,13 @@ function isSquareAttacked2(position, squareIndex, white)
     -- by B,Q,K
     for _,move in ipairs(PIECE_MOVES.B) do
         for i = 1, 7 do
-            local targetIndex = squareIndex + move * i
-            if i == 1 and (board[targetIndex] == (white and "k" or "K")) then
+            local tgtIdx = sqI + move * i
+            if i == 1 and (board[tgtIdx] == (white and "k" or "K")) then
                 return true
             end
-            if board[targetIndex] == (white and "b" or "B") or board[targetIndex] == (white and "q" or "Q") then
+            if board[tgtIdx] == (white and "b" or "B") or board[tgtIdx] == (white and "q" or "Q") then
                 return true
-            elseif board[targetIndex] ~= "." then
+            elseif board[tgtIdx] ~= "." then
                 break -- shielded
             end
         end
@@ -344,13 +449,13 @@ function isSquareAttacked2(position, squareIndex, white)
     -- by R,Q,K
     for _,move in ipairs(PIECE_MOVES.R) do
         for i = 1, 7 do
-            local targetIndex = squareIndex + move * i
-            if i == 1 and (board[targetIndex] == (white and "k" or "K")) then
+            local tgtIdx = sqI + move * i
+            if i == 1 and (board[tgtIdx] == (white and "k" or "K")) then
                 return true
             end
-            if board[targetIndex] == (white and "r" or "R") or board[targetIndex] == (white and "q" or "Q") then
+            if board[tgtIdx] == (white and "r" or "R") or board[tgtIdx] == (white and "q" or "Q") then
                 return true
-            elseif board[targetIndex] ~= "." then
+            elseif board[tgtIdx] ~= "." then
                 break -- shielded
             end
         end
@@ -359,11 +464,11 @@ function isSquareAttacked2(position, squareIndex, white)
     return false
 end
 
-function isCheck(position, white)
+function isCheck(pos, white)
     local kingIndex = nil
     for i = 21, 100 do
-        local piece = position.board[i]
-        if (white and piece == "K") or (not white and piece == "k") then
+        local pc = pos.board[i]
+        if (white and pc == "K") or (not white and pc == "k") then
             kingIndex = i
         end
     end
@@ -372,15 +477,15 @@ function isCheck(position, white)
         return false
     end
 
-    return isSquareAttacked2(position, kingIndex, white)
+    return isSqAtk(pos, kingIndex, white)
 end
 
-function isMate(position, white)
-    local legalMoves = getAllLegalMoves(position, white, false)
-    return (#legalMoves == 0) and isCheck(position, white)
+function isMate(pos, white)
+    local lgMvs = getAllLegalMoves(pos, white, false)
+    return (#lgMvs == 0) and isCheck(pos, white)
 end
 
-function isStalemate(position, white)
-    local legalMoves = getAllLegalMoves(position, white, false)
-    return (#legalMoves == 0) and not isCheck(position, white)
+function isStalemate(pos, white)
+    local lgMvs = getAllLegalMoves(pos, white, false)
+    return (#lgMvs == 0) and not isCheck(pos, white)
 end
